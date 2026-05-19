@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Who is chatting with me - a lightweight text decryption web demo."
+    />
+    <title>ChatGPT</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2310a37f'/%3E%3Cpath d='M32 12l4.4 12.7L50 29l-13.6 4.3L32 46l-4.4-12.7L14 29l13.6-4.3L32 12z' fill='white'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="会话列表">
+        <div class="sidebar-top">
+          <button class="new-chat-button" id="newChatButton" type="button">
+            <span class="plus-mark">+</span>
+            <span>新对话</span>
+          </button>
+        </div>
+
+        <nav class="conversation-list" aria-label="历史会话">
+          <button class="conversation-item active" type="button">
+            <span class="conversation-title">今天想聊点什么？</span>
+            <span class="conversation-meta">刚刚</span>
+          </button>
+          <button class="conversation-item" type="button">
+            <span class="conversation-title">会议纪要整理</span>
+            <span class="conversation-meta">昨天</span>
+          </button>
+          <button class="conversation-item dimmed" type="button">
+            <span class="conversation-title">LW-____</span>
+            <span class="conversation-meta">23:17</span>
+          </button>
+          <button class="conversation-item" type="button">
+            <span class="conversation-title">上下文窗口解释</span>
+            <span class="conversation-meta">周一</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="account-dot" aria-hidden="true">S</div>
+          <div>
+            <div class="account-name">Skeylove</div>
+            <div class="account-status" id="sidebarStatus">Free plan</div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-app">
+        <header class="topbar">
+          <button class="model-pill" id="modelPill" type="button" aria-label="当前模型">
+            <span class="model-name" id="modelName">ChatGPT 4o mini</span>
+            <span class="chevron">⌄</span>
+          </button>
+
+          <div class="status-cluster">
+            <button class="status-chip" id="contextButton" type="button">
+              <span class="status-label">上下文</span>
+              <span class="status-value" id="contextValue">4 / 128k</span>
+            </button>
+            <button class="status-chip" id="hintButton" type="button">
+              <span class="status-label" id="hintLabel">上下文自检</span>
+              <span class="status-value" id="hintValue">就绪</span>
+            </button>
+            <div class="status-chip muted" aria-live="polite">
+              <span class="status-label">系统</span>
+              <span class="status-value" id="systemStatus">online</span>
+            </div>
+          </div>
+        </header>
+
+        <section class="chat-scroll" id="chatScroll" aria-live="polite">
+          <div class="welcome-panel" id="welcomePanel">
+            <div class="welcome-mark">✦</div>
+            <h1>今天想聊点什么？</h1>
+            <div class="prompt-grid">
+              <button class="prompt-card" type="button" data-prompt="测试一下你是否在线">
+                测试一下你是否在线
+              </button>
+              <button class="prompt-card" type="button" data-prompt="解释一下上下文窗口是什么">
+                解释一下上下文窗口是什么
+              </button>
+              <button class="prompt-card" type="button" data-prompt="帮我整理一份会议纪要">
+                帮我整理一份会议纪要
+              </button>
+              <button class="prompt-card prompt-card-subtle" type="button" data-prompt="你是谁？">
+                你是谁？
+              </button>
+            </div>
+          </div>
+
+          <div class="message-list" id="messageList"></div>
+        </section>
+
+        <footer class="composer-wrap">
+          <form class="composer" id="composerForm">
+            <textarea
+              id="composerInput"
+              rows="1"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="给 ChatGPT 发送消息"
+              aria-label="输入消息"
+            ></textarea>
+            <button class="send-button" id="sendButton" type="submit" aria-label="发送">
+              ↑
+            </button>
+          </form>
+          <p class="fine-print" id="finePrint">
+            ChatGPT 也可能会犯错。请核查重要信息。
+          </p>
+        </footer>
+      </main>
+    </div>
+
+    <script src="./src/app.js"></script>
+  </body>
+</html>
