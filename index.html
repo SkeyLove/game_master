@@ -25,19 +25,19 @@
         </div>
 
         <nav class="conversation-list" aria-label="历史会话">
-          <button class="conversation-item active" type="button">
+          <button class="conversation-item active" type="button" data-conversation="new-chat">
             <span class="conversation-title">今天想聊点什么？</span>
             <span class="conversation-meta">刚刚</span>
           </button>
-          <button class="conversation-item" type="button">
+          <button class="conversation-item" type="button" data-conversation="meeting">
             <span class="conversation-title">会议纪要整理</span>
             <span class="conversation-meta">昨天</span>
           </button>
-          <button class="conversation-item dimmed" type="button">
+          <button class="conversation-item dimmed" type="button" data-conversation="lw">
             <span class="conversation-title">LW-____</span>
             <span class="conversation-meta">23:17</span>
           </button>
-          <button class="conversation-item" type="button">
+          <button class="conversation-item" type="button" data-conversation="context">
             <span class="conversation-title">上下文窗口解释</span>
             <span class="conversation-meta">周一</span>
           </button>
@@ -79,6 +79,9 @@
           <div class="welcome-panel" id="welcomePanel">
             <div class="welcome-mark">✦</div>
             <h1>今天想聊点什么？</h1>
+            <p class="welcome-guide">
+              可以先输入一句测试。看到不自然的词、数字或名字时，直接把它发回对话框。
+            </p>
             <div class="prompt-grid">
               <button class="prompt-card" type="button" data-prompt="测试一下你是否在线">
                 测试一下你是否在线

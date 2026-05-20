@@ -1,159 +1,558 @@
-# Technical Design
+# 07 Technical Design
 
-这个文档定义 demo 的推荐技术方案和核心实现结构。目标是快速做出可玩的网页端单机 demo，不接入 AI API。
+Terminology note: this document follows `design/09-glossary.md`. In English technical sections, `case/story` maps to “案件”, `chapter` maps to “章节”, and `stage/phase` is reserved for internal state-machine status.
 
-## 技术栈
+## 1. Document Purpose
 
-建议首版使用：
+This document defines the technical design for the demo version of a lightweight web-based micro-horror reasoning game. The game is disguised as a ChatGPT-like web page. The player believes they are interacting with a normal AI assistant, but the conversation gradually exposes inconsistencies, hidden prompts, passwords, and narrative fragments. By decoding these elements, the player reconstructs a disappearance case within 10-15 minutes.
 
-- 前端框架：React
-- 构建工具：Vite
-- 语言：TypeScript
-- 样式方案：CSS Modules 或普通 CSS，先不引入复杂 UI 库
-- 状态管理：React `useReducer`，必要时拆出纯函数状态机
-- 测试工具：Vitest 用于答案匹配和状态推进，Playwright 用于关键流程冒烟测试
-- 部署目标：静态站点，可部署到 Vercel、Netlify、GitHub Pages 或任意静态服务器
+This phase focuses on a playable desktop web demo. The design prioritizes fast entry, strong immersion, controlled scope, and reliable implementation over feature completeness.
 
-如果后续只想更快做极简原型，也可以用纯 HTML/CSS/JS，但 React + Vite 更适合维护多阶段对话和分支结局。
+## 2. Product and Technical Goals
 
-## 核心架构
+### 2.1 Core Experience Goals
 
-```text
-src/
-  app/
-    App.tsx
-  components/
-    ChatLayout.tsx
-    ChatMessage.tsx
-    Composer.tsx
-    Sidebar.tsx
-    TopStatusBar.tsx
-    EndingView.tsx
-  data/
-    chapters.ts
-    endings.ts
-  game/
-    matcher.ts
-    reducer.ts
-    normalize.ts
-    types.ts
-  styles/
-    global.css
-    chat.css
-  utils/
-    delay.ts
-```
+- Enter the game and begin interaction within 5 seconds.
+- Reproduce the visual and interaction rhythm of the ChatGPT desktop web client.
+- Use the dialogue box as the primary gameplay interface.
+- Let the player feel a gradual shift from "normal AI chat" to "something is wrong".
+- Deliver a complete closed-loop experience in 10-15 minutes.
+- Make reasoning satisfying through information association, contradiction discovery, and password decoding instead of obscure external knowledge.
 
-## 数据模型
+### 2.2 Demo Scope Goals
 
-### GameState
+The demo must include:
+
+- One complete playable case.
+- One main conversation thread with branching states.
+- Predetermined AI responses, without connecting to any real AI API.
+- Password decoding and hidden clue discovery.
+- Basic fake system UI elements that support immersion.
+- Desktop-first layout.
+
+The demo will not include:
+
+- Multiplayer collaboration.
+- Real-time communication.
+- Cloud sync.
+- Login/account system.
+- Mobile adaptation.
+- Complex user-generated content tools.
+
+## 3. Platform and Deployment
+
+### 3.1 Target Platform
+
+- Primary platform: desktop web browser.
+- Recommended browsers: Chrome, Edge.
+- Minimum environment: modern browser supporting ES modules, CSS grid/flex, local state management.
+
+### 3.2 Deployment Strategy
+
+For the demo phase, deployment should remain lightweight:
+
+- Static front-end deployment is preferred.
+- Can be hosted on Vercel, Netlify, GitHub Pages, or a school demo server.
+- No required backend dependency.
+
+This keeps the project easy to demo, easy to submit, and easy to maintain.
+
+## 4. System Architecture
+
+### 4.1 Architecture Choice
+
+Use a front-end only architecture with local data-driven content.
+
+Suggested structure:
+
+- Presentation layer: fake ChatGPT-like UI.
+- Game engine layer: state machine controlling dialogue progress and puzzle unlocks.
+- Content layer: JSON or TypeScript configuration storing script, clues, passwords, choices, and triggers.
+- Utility layer: parser, local progress state, keyword matching, and hidden clue reveal logic.
+
+### 4.2 Why This Architecture
+
+- No backend is required for demo delivery.
+- Script-heavy content is easier to iterate.
+- Dialogue and puzzle logic can be modified without rewriting UI.
+- Future expansion to multiple cases becomes easier.
+
+## 5. Recommended Tech Stack
+
+### 5.1 Front-End Framework
+
+Recommended:
+
+- `React + Vite + TypeScript`
+
+Reasons:
+
+- Fast development for demo.
+- Suitable for component-based imitation of ChatGPT UI.
+- Easy state control for conversation-driven gameplay.
+- TypeScript helps keep script data and trigger logic consistent.
+
+### 5.2 Styling
+
+Recommended:
+
+- CSS Modules or plain scoped CSS
+- Optional utility support: Tailwind CSS if the team is already familiar with it
+
+For the demo, consistency matters more than complexity. If the team wants minimal setup, plain CSS with a design token file is enough.
+
+### 5.3 State Management
+
+Recommended:
+
+- React `useState` + `useReducer` for local state
+
+No external state library is required for the demo.
+
+### 5.4 Data Format
+
+Recommended:
+
+- Store case content in JSON-like configuration files or TypeScript objects.
+
+This allows:
+
+- Easy writing of large amounts of scripted AI text.
+- Clear separation between code and story content.
+- Easier future case extension.
+
+## 6. Functional Design
+
+### 6.1 Main Functional Modules
+
+The demo should contain the following modules:
+
+1. Shell UI module
+2. Conversation engine
+3. Input parsing module
+4. Puzzle and password module
+5. Hidden clue module
+6. Narrative state module
+7. Fake system feedback module
+
+### 6.2 Shell UI Module
+
+This module recreates the ChatGPT desktop web interface.
+
+Key visible areas:
+
+- Left sidebar
+- Main conversation area
+- Top bar
+- Input box
+- Fake system indicators
+
+Design requirements:
+
+- Layout should resemble a real AI chat product.
+- Initial screen should look usable immediately.
+- Non-game UI elements should support the illusion rather than distract.
+
+Possible disguised game-specific elements:
+
+- Progress indicator disguised as context usage.
+- Hidden clue count disguised as tool or attachment status.
+- Stage shift disguised as model response mode or memory update.
+
+### 6.3 Conversation Engine
+
+This is the core gameplay system.
+
+Responsibilities:
+
+- Render message history.
+- Output predetermined AI messages.
+- Trigger different responses based on player input.
+- Advance game stages.
+- Inject suspicious or abnormal content gradually.
+
+Interaction model:
+
+- The player types naturally in the input box.
+- The system does not need real natural language understanding.
+- Player input is matched against configured keywords, answer sets, or stage-specific intents.
+
+Matching strategy:
+
+- Exact answer matching for passwords and key conclusions.
+- Keyword matching for intent recognition.
+- Fallback responses for unrelated or off-track input.
+
+This keeps implementation simple while preserving the illusion of flexible conversation.
+
+### 6.4 Input Parsing Module
+
+Because no AI API is used, the system needs a controlled parser.
+
+Recommended parsing layers:
+
+1. Normalize user text
+2. Match against stage-specific rules
+3. Determine whether the input is:
+   - normal chat
+   - clue request
+   - password attempt
+   - reasoning conclusion
+   - invalid/off-topic input
+4. Return the configured AI response and state change
+
+Input normalization examples:
+
+- trim spaces
+- lowercase English letters
+- normalize punctuation
+- map synonymous phrases to the same intent
+
+This supports richer writing while keeping logic stable.
+
+### 6.5 Puzzle and Password Module
+
+The demo includes at least one password-based interaction.
+
+Design goals:
+
+- Password should come from information already exposed in chat history or embedded clue texts.
+- The player should feel they discovered the answer rather than guessed it.
+- The solution should be inferable from contradictions, dates, names, or repeated fragments.
+
+Possible puzzle forms:
+
+- Date reconstruction
+- File access code
+- Message decryption by letter substitution
+- Hidden acrostic in multiple replies
+- Contradictory timeline leading to a numeric code
+
+Technical implementation:
+
+- Each puzzle has `unlockCondition`, `expectedAnswers`, `failureResponses`, `successEffects`.
+- Success can unlock:
+  - a hidden chat record
+  - a deleted note
+  - a system warning
+  - a final narrative fragment
+
+### 6.6 Hidden Clue Module
+
+The game's micro-horror and异质感 depend on hidden clues.
+
+Clue types can include:
+
+- Slightly corrupted AI output
+- Suspicious metadata in fake system messages
+- Click-to-expand "irrelevant" footnotes
+- Strange icons that become meaningful later
+- Repeated wording that encodes a clue
+
+Technical handling:
+
+- Some clues are purely textual and unlocked by stage.
+- Some clues are clickable markers in the interface.
+- Some clues appear only after specific input.
+
+The hidden clue system should not overwhelm the player. It should reward attention, not punish normal play.
+
+### 6.7 Narrative State Module
+
+The story progresses through explicit stages.
+
+Recommended demo stages:
+
+1. Normal assistant interaction
+2. Mild inconsistency appears
+3. Suspicion deepens through clues
+4. Password or access challenge
+5. Hidden truth reconstruction
+6. Final reveal
+
+Each stage stores:
+
+- stage id
+- unlocked messages
+- available clue interactions
+- accepted intents
+- expected key answers
+- fail-safe fallback hints
+
+This state-driven design prevents narrative breakage.
+
+### 6.8 Fake System Feedback Module
+
+To reinforce immersion, the UI should include system-like feedback elements.
+
+Examples:
+
+- "Conversation memory updated"
+- "Context limit approaching"
+- "Archived response available"
+- "Tool output partially unavailable"
+
+These messages serve two purposes:
+
+- mimic real product behavior
+- hide or frame actual gameplay hints
+
+## 7. Core Gameplay Flow
+
+### 7.1 Entry Flow
+
+- User opens the page.
+- A familiar ChatGPT-like interface is shown immediately.
+- The input box is active.
+- One starter assistant message invites harmless interaction.
+- Within 5 seconds the user can type and receive a response.
+
+### 7.2 Suspicion Building Flow
+
+- Early responses feel normal and helpful.
+- Subtle anomalies appear:
+  - repeated names
+  - response fragments unrelated to the prompt
+  - fake system notices
+  - strange references to a missing person
+
+The player starts testing the system.
+
+### 7.3 Investigation Flow
+
+- The player asks about suspicious content.
+- The dialogue system gradually yields clue-bearing responses.
+- The player notices patterns, contradictions, and hidden references.
+- The interface reveals additional pseudo-features that contain clues.
+
+### 7.4 Resolution Flow
+
+- The player enters a correct password or conclusion.
+- Final data fragments unlock.
+- The disappearance case is reconstructed.
+- A closing narrative confirms the truth and completes the demo loop.
+
+## 8. Content Structure Design
+
+### 8.1 Content-Driven Script Format
+
+To support large volumes of handcrafted text, script content should be modular.
+
+Suggested structure:
 
 ```ts
-type GameState = {
-  phase: "intro" | "playing" | "ending";
-  currentChapterId: string;
-  messages: ChatMessage[];
-  solvedPuzzleIds: string[];
-  discoveredClues: string[];
-  usedHints: Record<string, number>;
-  wrongAttempts: Record<string, number>;
-  endingId?: string;
+type DialogueNode = {
+  id: string;
+  stage: string;
+  triggerType: "keyword" | "exact" | "default" | "system";
+  triggerValues?: string[];
+  response: string[];
+  effects?: GameEffect[];
+  nextStage?: string;
 };
 ```
 
-### ChatMessage
+Suggested additional structures:
 
 ```ts
-type ChatMessage = {
+type PuzzleConfig = {
   id: string;
-  role: "user" | "assistant" | "system" | "signal";
-  content: string;
-  tone?: "normal" | "glitch" | "warning" | "hidden";
-  createdAt?: string;
-};
-```
-
-### Puzzle
-
-```ts
-type Puzzle = {
-  id: string;
-  answers: string[];
-  aliases: string[];
-  hints: string[];
-  successMessages: ChatMessage[];
+  stage: string;
+  expectedAnswers: string[];
+  successEffects: GameEffect[];
   failureResponses: string[];
 };
+
+type ClueConfig = {
+  id: string;
+  title: string;
+  source: "message" | "icon" | "system_notice" | "metadata";
+  unlockStage: string;
+  content: string;
+};
 ```
 
-## 状态推进
+### 8.2 Writing Requirements
 
-推荐使用 reducer 处理玩家输入：
+Because no real AI is used, text quality is essential.
 
-1. `SUBMIT_INPUT`：把用户消息加入聊天。
-2. `MATCH_INPUT`：根据当前章节和输入内容匹配答案、结局或 fallback。
-3. `APPEND_RESPONSE`：追加预设 assistant/system/signal 消息。
-4. `COMPLETE_PUZZLE`：记录已解谜题和新线索。
-5. `ADVANCE_CHAPTER`：切换下一章节。
-6. `ENTER_ENDING`：进入结局视图。
+Content writing should provide:
 
-## 输入匹配
+- natural everyday assistant responses
+- gradually distorted replies
+- multiple fallback answers
+- stage-appropriate hints
+- believable fake system notices
 
-必须先做归一化：
+The writing volume must be sufficient so the interface does not feel mechanically branching.
 
-- 去除首尾空格。
-- 英文转小写。
-- 全角字符转半角。
-- 去除常见标点。
-- 中文答案可去除中间空格。
-- 特殊规则：`23:17`、`23 17`、`2317` 等价；`LW-2317`、`LW2317` 等价。
+## 9. UI/UX Design Principles
 
-匹配优先级：
+### 9.1 Visual Direction
 
-1. 当前章节关键答案。
-2. 当前章节答案别名。
-3. 最终结局触发词。
-4. 通用试探词，例如 `你是谁`、`有人吗`。
-5. 当前章节 fallback。
+The UI should strongly resemble the ChatGPT desktop web client without copying unnecessary complexity.
 
-## 存档
+Principles:
 
-- MVP：不需要存档。
-- 刷新页面：可以从头开始。
-- 后续版本：可使用 `localStorage` 保存 `GameState`，但要注意这会削弱“误入普通 AI 页面”的初始体验。
+- clean and minimal
+- familiar spacing and message rhythm
+- realistic input behavior
+- subtle horror through content, not jump scares
 
-## UI 状态
+### 9.2 Game-Specific Additions
 
-需要维护的 UI 状态：
+Additional elements should be disguised rather than highlighted.
 
-- 是否正在生成回复。
-- 当前可用提示等级。
-- 顶部上下文数字。
-- 模型名显示文本。
-- 是否显示结局页。
+Examples:
 
-UI 异常不应该影响核心数据判断；它们应由剧情节点触发，但失败时不阻塞游戏推进。
+- a small "usage" bar that is actually stage progress
+- a muted icon that indicates hidden clue availability
+- a pseudo export/history entry that opens a clue panel
 
-## 测试重点
+### 9.3 Player Guidance
 
-- 答案归一化是否正确。
-- 每个谜题的别名是否能触发成功。
-- 错误输入是否不会卡死流程。
-- 三个结局是否都能进入。
-- Enter 和 Shift + Enter 行为是否正确。
-- 首屏输入任意内容后是否能开始游戏。
+The game should avoid confusion caused by over-simulation.
 
-## 风险
+Support methods:
 
-- 伪 ChatGPT 界面要像，但不能依赖真实品牌资源或官方接口。
-- 预设回复需要足够多，否则玩家容易看出不是 AI。
-- 自由输入范围太大，fallback 必须自然，不能频繁露馅。
-- 谜题线索藏得太深会导致玩家以为只是 UI bug。
-- 三结局需要在文案上显著不同，否则重复游玩动力不足。
+- starter message suggests example prompts
+- fallback AI responses gently redirect the player
+- wrong password attempts receive thematic hints
+- key clues appear in more than one place
 
-## 待确认
+## 10. Demo Content Design Principles
 
-- 是否使用 React + Vite 作为正式 demo 技术栈。
-- 是否需要完全避免使用 ChatGPT 名称和标识，只保留“AI 对话界面”感觉。
-- MVP 是否要内置 5 个谜题，还是先做 3 个谜题的短版。
-- 结局 C 是否定义为真结局，还是三个结局平权。
+### 10.1 Single-Case Structure
+
+The demo should tell one clear disappearance case.
+
+Preferred structure:
+
+- missing person setup
+- fragmented evidence in chat
+- one central contradiction
+- one core password or access gate
+- one final reveal
+
+### 10.2 Puzzle Difficulty
+
+The puzzle should prioritize reasoning pleasure.
+
+Avoid:
+
+- niche factual knowledge
+- heavy math
+- unclear symbol systems
+- trial-and-error brute force
+
+Prefer:
+
+- timeline contradiction
+- wording inconsistency
+- identity mismatch
+- repeated textual motif
+
+## 11. Non-Functional Requirements
+
+### 11.1 Performance
+
+- First screen should render quickly.
+- Initial interaction should be available within 5 seconds.
+- No heavyweight dependencies should block the initial paint.
+
+### 11.2 Reliability
+
+- The player must always be able to continue after incorrect input.
+- There should be no dead-end branch that permanently blocks progress.
+- Critical clues should not rely on a single fragile interaction.
+
+### 11.3 Maintainability
+
+- Story content should be separated from rendering logic.
+- Dialogue nodes should be easy to edit.
+- Puzzle configurations should be readable by non-programmers if possible.
+
+## 12. Data and Persistence Strategy
+
+For this demo phase:
+
+- No cloud storage is needed.
+- No login is needed.
+- Full progress save is out of scope.
+
+Recommended minimal strategy:
+
+- Keep the active session state in memory only.
+- Use lightweight LocalStorage only for unlocked endings and whether the player has reached the final choice checkpoint.
+- Do not restore the full chat history in the current demo.
+
+## 13. Risks and Mitigation
+
+### 13.1 Risk: Fake AI Feels Too Rigid
+
+Cause:
+
+- Limited input matching.
+
+Mitigation:
+
+- Add generous keyword sets.
+- Write strong fallback responses.
+- Use staged prompts that gently guide the player.
+
+### 13.2 Risk: The ChatGPT Imitation Overpowers Gameplay
+
+Cause:
+
+- Too much effort spent on UI mimicry and too little on narrative logic.
+
+Mitigation:
+
+- Prioritize the conversation engine and puzzle clarity first.
+- Keep peripheral UI fake but simple.
+
+### 13.3 Risk: Writing Workload Is Too Large
+
+Cause:
+
+- Scripted AI requires many handcrafted responses.
+
+Mitigation:
+
+- Build a reusable response template system.
+- Focus the demo on one case and a small number of robust interaction intents.
+
+### 13.4 Risk: Players Get Stuck
+
+Cause:
+
+- Hidden clues may be too subtle.
+
+Mitigation:
+
+- Use layered hints.
+- Repeat critical clue logic through multiple channels.
+- Ensure wrong attempts push the player back toward useful reasoning.
+
+## 14. Future Extension Directions
+
+Not part of the current demo, but supported by the architecture:
+
+- multiple cases
+- full progress save
+- mobile adaptation
+- dynamic clue board
+- user-generated cases
+- multi-ending structure
+
+## 15. Final Technical Decision Summary
+
+For the demo version, the recommended technical solution is:
+
+- Build a desktop-first H5 web app.
+- Use `React + Vite + TypeScript`.
+- Implement a local scripted dialogue engine instead of calling any AI API.
+- Store case, clue, and puzzle content in structured configuration files.
+- Recreate the ChatGPT-like interface with simplified but convincing UI.
+- Use staged state transitions to control narrative progression.
+- Deliver one complete 10-15 minute disappearance case with chat-based reasoning, password solving, and hidden clue discovery.

@@ -262,6 +262,14 @@ button {
   letter-spacing: 0;
 }
 
+.welcome-guide {
+  width: min(620px, 100%);
+  margin: -12px auto 24px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .prompt-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -282,6 +290,38 @@ button {
 
 .prompt-card-subtle {
   color: #684d52;
+}
+
+.progress-panel {
+  display: grid;
+  gap: 8px;
+  width: min(720px, 100%);
+  margin: 18px auto 0;
+  padding: 12px;
+  color: #4b4d55;
+  background: var(--system);
+  border: 1px solid #e8e9ee;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.progress-title {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.progress-action {
+  justify-self: start;
+  padding: 8px 10px;
+  color: #fff;
+  background: #202123;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.progress-copy {
+  color: #5d6069;
+  font-size: 13px;
 }
 
 .message-list {
@@ -502,12 +542,25 @@ button {
   font-size: 13px;
 }
 
+.attitude-note {
+  margin: 10px 0 0;
+  color: #5b4a50;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .restart-inline {
   margin-top: 16px;
   padding: 9px 12px;
   color: #fff;
   background: #202123;
   border-radius: 8px;
+}
+
+.ending-progress {
+  margin: 14px 0 0;
+  color: #5d6069;
+  font-size: 13px;
 }
 
 .context-alert #contextValue,
