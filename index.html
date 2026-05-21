@@ -30,15 +30,21 @@
             <span class="conversation-meta">刚刚</span>
           </button>
           <button class="conversation-item" type="button" data-conversation="meeting">
-            <span class="conversation-title">会议纪要整理</span>
+            <span class="conversation-title">今天加班整理的材料</span>
             <span class="conversation-meta">昨天</span>
           </button>
-          <button class="conversation-item dimmed" type="button" data-conversation="lw">
+          <button class="conversation-item conversation-item-visual dimmed" type="button" data-conversation="lw">
+            <img
+              class="conversation-thumb"
+              src="./assets/images/generated/lw-archive-thumbnail.png"
+              alt=""
+              aria-hidden="true"
+            />
             <span class="conversation-title">LW-____</span>
             <span class="conversation-meta">23:17</span>
           </button>
           <button class="conversation-item" type="button" data-conversation="context">
-            <span class="conversation-title">上下文窗口解释</span>
+            <span class="conversation-title">上下文窗口压缩</span>
             <span class="conversation-meta">周一</span>
           </button>
         </nav>
@@ -56,6 +62,13 @@
         <header class="topbar">
           <button class="model-pill" id="modelPill" type="button" aria-label="当前模型">
             <span class="model-name" id="modelName">ChatGPT 4o mini</span>
+            <img
+              class="model-badge is-hidden"
+              id="modelBadge"
+              src="./assets/images/generated/system-lock-badge.png"
+              alt=""
+              aria-hidden="true"
+            />
             <span class="chevron">⌄</span>
           </button>
 
@@ -70,7 +83,7 @@
             </button>
             <div class="status-chip muted" aria-live="polite">
               <span class="status-label">系统</span>
-              <span class="status-value" id="systemStatus">online</span>
+              <span class="status-value" id="systemStatus">在线</span>
             </div>
           </div>
         </header>

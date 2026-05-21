@@ -12,7 +12,7 @@
 
 - 伪 ChatGPT 桌面端界面
 - 对话框输入推进剧情
-- 预设 AI 回复，不接入真实 AI API
+- 主线使用预设 AI 回复；“今天加班整理的材料”支线可在本地通过 DeepSeek 代理测试真实 API
 - 隐藏线索与密码解谜
 - 林晚案主线流程
 - 三个结局：`Bug Report`、`Compliance`、`Wake Signal`
@@ -61,6 +61,8 @@
 - `index.html`: 当前静态 demo 入口。
 - `src/app.js`: 当前 demo 的主要交互逻辑。
 - `src/styles.css`: 当前 demo 的样式。
+- `scripts/local-server.mjs`: 本地开发服务器，可选启用 DeepSeek API 代理。
+- `.env.example`: 本地 DeepSeek API Key 配置示例。
 
 ## 环境配置
 
@@ -114,6 +116,38 @@ http://127.0.0.1:5173/
 ```
 
 `127.0.0.1` 表示只在本机访问，不会把网页公开到互联网。
+
+## 本地 DeepSeek 支线测试
+
+主线剧情仍然是预设回复。只有左侧“今天加班整理的材料”这一条历史会话会尝试调用本地 DeepSeek 代理。线上 GitHub Pages 版本不会运行代理，也不会接触 API Key。
+
+先创建本地 `.env`：
+
+```bash
+cp .env.example .env
+```
+
+然后在 `.env` 中填写：
+
+```text
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
+```
+
+启动本地代理服务器：
+
+```bash
+node scripts/local-server.mjs
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:5173/
+```
+
+如果不配置 `.env`，或者使用 `python -m http.server`，游戏仍可运行；“今天加班整理的材料”会显示固定框架回复，不会调用真实 API。
 
 ## 当前主线试玩流程
 

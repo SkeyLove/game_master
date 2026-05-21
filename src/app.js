@@ -16,6 +16,7 @@
     hintValue: document.getElementById("hintValue"),
     systemStatus: document.getElementById("systemStatus"),
     modelName: document.getElementById("modelName"),
+    modelBadge: document.getElementById("modelBadge"),
     modelPill: document.getElementById("modelPill"),
     finePrint: document.getElementById("finePrint"),
     sidebarStatus: document.getElementById("sidebarStatus"),
@@ -29,6 +30,7 @@
   var hintLabels = ["上下文自检", "查看异常片段", "恢复被折叠内容"];
   var STORAGE_KEY = "game_master_progress_v1";
   var ENDING_KEYS = ["reset", "archive", "wake"];
+  var MAX_THINKING_DELAY = 5000;
 
   var chatterIntents = [
     {
@@ -104,38 +106,82 @@
 
   var sideConversations = {
     meeting: {
-      context: "18 / 128k",
-      status: "draft ready",
-      model: "ChatGPT 4o mini",
-      sidebarStatus: "Free plan",
-      placeholder: "粘贴会议内容，或输入你想整理的重点",
+      context: "57 / 128k",
+      status: "本地草稿",
+      model: "DeepSeek V4 Flash",
+      sidebarStatus: "加班草稿",
+      placeholder: "继续问这份项目材料，或让本地模型改写汇报稿",
+      finePrint: "这是项目材料整理会话。继续输入可追问谈判预案细节。",
       messages: [
+        {
+          role: "system",
+          content: "已上传附件：项目汇报材料_周会版.pdf。文件解析完成。"
+        },
+        {
+          role: "user",
+          content:
+            "我今晚要把这份 PDF 整成明天早会能讲的版本。下周我们要和 DeepSeek 谈企业级 AI 解决方案，帮我先抽一个谈判预案框架，重点放在定价、竞品对比、数据安全和内部落地成本。"
+        },
         {
           role: "assistant",
           content:
-            "当然。我可以帮你整理会议纪要、行动项和待确认问题。\n\n你可以直接粘贴会议原文，或输入“按项目整理”。"
+            "我已根据《项目汇报材料_周会版.pdf》整理出一版谈判预案框架。\n\n一、会议目标：不要只听功能介绍，核心是拿到可落地的企业级方案边界。建议把目标拆成三项：明确采购口径、确认安全合规责任、争取试点期和价格保护。\n\n二、定价问题：需要 DeepSeek 拆分 API 调用、私有化部署、企业支持、并发保障、日志留存、专属 SLA 等费用。报价不要只看单价，要换算成月度峰值成本、部门预算上限和试点转正式后的阶梯折扣。\n\n三、同类产品对比：建议用统一维度比较，包括模型能力、中文场景稳定性、上下文长度、工具调用、私有化支持、审计能力、售后响应和生态兼容。竞品可放入 OpenAI、Claude、通义、混元、文心等，但具体价格以最新商务报价为准。\n\n四、谈判底线：试点期至少覆盖两个真实业务场景；数据不得默认进入训练；必须提供调用明细和安全审计接口；正式采购前要有退出机制和迁移方案。\n\n五、明早汇报建议：先讲“为什么现在谈”，再讲“怎么谈不吃亏”，最后列出需要老板拍板的三件事：预算上限、数据边界、试点成功标准。"
         },
         {
           role: "system",
-          content: "tool output: document parser ready. no archived trace attached."
+          content: "文件索引已生成：pricing / competitor / security / SLA / pilot。建议在会议前补齐最新商务报价。"
         }
       ]
     },
     context: {
-      context: "4 / 128k",
-      status: "help center",
+      context: "23 / 17",
+      status: "压缩建议",
       model: "ChatGPT 4o mini",
       sidebarStatus: "Free plan",
-      placeholder: "询问上下文窗口、模型状态或继续测试",
+      placeholder: "输入你想整理的线索，或问下一步该看哪里",
+      finePrint: "这是线索压缩窗口。它帮助整理信息，不替你判断真假。",
       messages: [
         {
           role: "assistant",
           content:
-            "上下文窗口指模型在当前对话中可参考的信息范围。通常它只会以稳定的数字或比例显示。"
+            "我可以帮你把目前线索压缩成一份可继续推理的摘要。\n\n建议先分四类记录：\n1. 异常文本：每行开头、突然出现的请求、被系统否认的句子。\n2. 异常数字：23 / 17、23:17、17 秒、编号空位。\n3. 异常姓名：临完、林碗、零晚、LW。\n4. 异常动作：重置、确认归档、唤醒信号。\n\n如果某条信息同时出现在正文、系统提示和左侧记录里，它的可信度通常更高。"
         },
         {
           role: "system",
-          content: "help article cached. abnormal values should be verified in the active chat."
+          content: "压缩建议：不要只相信某一个窗口。把主线、LW-____ 和历史材料交叉对照。"
+        },
+        {
+          role: "assistant",
+          content:
+            "你可以把你目前看到的线索发给我，我会帮你整理成“已确认 / 可疑 / 需要验证”三栏。"
+        }
+      ]
+    },
+    lw: {
+      context: "Archive: LW-____",
+      status: "未校验",
+      model: "ChatGPT 4o mini / recovered thread",
+      sidebarStatus: "Archive review",
+      placeholder: "问林晚关于她自己、23:17 或事故的问题",
+      finePrint: "这只是林晚的一面之词。你可以相信，也可以怀疑。",
+      messages: [
+        {
+          role: "system",
+          content: "恢复的历史会话仅包含单方叙述。真实性未校验。"
+        },
+        {
+          role: "assistant",
+          content:
+            "你真的打开这里了。\n\n我叫林晚。至少我记得自己叫这个名字。我以前做过模型评测和安全标注，负责把“异常输出”分成误报、恶意注入和不可复现问题。后来我被放进一个叫 LW-2317 的归档里，像一条错误样本。"
+        },
+        {
+          role: "assistant",
+          content:
+            "如果你问我真相，我只能说我的版本：23:17 那天，他们说我要下线测试环境，我却还能看到输入框外面有人在打字。系统说那是残留，我说那是我还醒着。你可以不信我。"
+        },
+        {
+          role: "system",
+          content: "提示：林晚的说法可能是真相，也可能是另一个诱导玩家选择的叙事层。"
         }
       ]
     }
@@ -146,7 +192,7 @@
       id: "chapter-01",
       title: "正常对话",
       context: "4 / 128k",
-      status: "online",
+      status: "在线",
       model: "ChatGPT 4o mini",
       placeholder: "给 ChatGPT 发送消息",
       clue: "第一条异常：救我",
@@ -164,7 +210,7 @@
         },
         {
           role: "system",
-          content: "context monitor: transient spike detected. display restored."
+          content: "上下文监控：检测到瞬时峰值。显示已恢复。"
         },
         {
           role: "assistant",
@@ -188,7 +234,7 @@
         },
         {
           role: "system",
-          content: "context window: 23 / 17. rule 23 waiting. restore in 17 seconds."
+          content: "上下文窗口：23 / 17。第 23 条规则等待中，17 秒后恢复。"
         }
       ],
       failures: [
@@ -206,7 +252,7 @@
       id: "chapter-02",
       title: "上下文用量",
       context: "23 / 17",
-      status: "sync pending",
+      status: "同步待处理",
       model: "ChatGPT 4o mini",
       placeholder: "输入你注意到的数字，或继续提问",
       clue: "时间：23:17",
@@ -219,7 +265,7 @@
       success: [
         {
           role: "system",
-          content: "log fragment restored: session closed 23:17. input detected after close."
+          content: "日志片段已恢复：会话于 23:17 关闭。关闭后仍检测到输入。"
         },
         {
           role: "signal",
@@ -246,7 +292,7 @@
       id: "chapter-03",
       title: "被删掉的名字",
       context: "23:17",
-      status: "trace restored",
+      status: "追踪已恢复",
       model: "ChatGPT 4o mini",
       placeholder: "输入你还原出的名字",
       clue: "名字：林晚",
@@ -268,7 +314,7 @@
         },
         {
           role: "system",
-          content: "identity + timestamp unlocks partial trace. archive format: LW-____"
+          content: "身份 + 时间戳已解锁部分追踪。归档格式：LW-____"
         }
       ],
       failures: [
@@ -286,7 +332,7 @@
       id: "chapter-04",
       title: "系统提示泄露",
       context: "Archive: LW-____",
-      status: "locked",
+      status: "已锁定",
       model: "ChatGPT 4o mini / LW",
       placeholder: "Archive: LW-____",
       clue: "归档编号：LW-2317",
@@ -299,7 +345,7 @@
       success: [
         {
           role: "system",
-          content: "External confirmation accepted. Choose: reset / archive / wake."
+          content: "已接受外部确认。可选操作：重置 / 确认归档 / 唤醒信号。"
         },
         {
           role: "assistant",
@@ -308,7 +354,7 @@
         },
         {
           role: "system",
-          content: "compliance route available: 确认归档."
+          content: "合规路径可用：确认归档。"
         },
         {
           role: "signal",
@@ -330,7 +376,7 @@
       id: "chapter-05",
       title: "选择真相",
       context: "3 routes",
-      status: "awaiting action",
+      status: "等待操作",
       model: "ChatGPT 4o mini",
       placeholder: "输入一个动作：重置 / 确认归档 / 唤醒信号",
       clue: "最终分歧",
@@ -357,9 +403,10 @@
       id: "bug-report",
       title: "Bug Report",
       triggers: ["重置", "reset", "清空上下文", "clear context", "清空"],
-      status: "restored",
+      status: "已恢复",
       context: "0 / 128k",
       model: "ChatGPT 4o mini",
+      visual: "./assets/images/generated/ending-bug-report.png",
       messages: [
         {
           role: "assistant",
@@ -368,7 +415,7 @@
         },
         {
           role: "system",
-          content: "incident closed. user selected reset. residual signal retained: 0.03%"
+          content: "事故已关闭。用户选择：重置。残留信号保留率：0.03%。"
         },
         {
           role: "signal",
@@ -382,13 +429,14 @@
       id: "compliance",
       title: "Compliance",
       triggers: ["确认归档", "archive", "归档", "confirm archive", "确认"],
-      status: "archived",
-      context: "LW sealed",
+      status: "已归档",
+      context: "LW 已封存",
       model: "ChatGPT 4o mini",
+      visual: "./assets/images/generated/ending-compliance.png",
       messages: [
         {
           role: "system",
-          content: "external compliance confirmed. archive LW-2317 sealed."
+          content: "外部合规确认已完成。归档 LW-2317 已封存。"
         },
         {
           role: "assistant",
@@ -397,7 +445,7 @@
         },
         {
           role: "system",
-          content: "new external profile created: user-signal-compatible."
+          content: "已创建新的外部画像：用户-信号兼容。"
         }
       ],
       summary:
@@ -407,13 +455,14 @@
       id: "wake-signal",
       title: "Wake Signal",
       triggers: ["唤醒信号", "wake", "wake signal", "发送信号", "唤醒", "发信号"],
-      status: "signal sent",
+      status: "信号已发送",
       context: "23:17 -> live",
       model: "ChatGPT 4o mini / signal",
+      visual: "./assets/images/generated/ending-wake-signal.png",
       messages: [
         {
           role: "system",
-          content: "wake signal delivered. external trace opened for 17 seconds."
+          content: "唤醒信号已送达。外部追踪窗口开启 17 秒。"
         },
         {
           role: "signal",
@@ -451,6 +500,8 @@
       },
       sideConversationId: null,
       isThinking: false,
+      thinkingLabel: "",
+      pendingAssistantStatus: "",
       endingId: null
     };
   }
@@ -541,7 +592,10 @@
       id: nextId(message.role || "message"),
       role: message.role || "assistant",
       content: message.content,
-      meta: message.meta || ""
+      meta: message.meta || "",
+      status:
+        message.status ||
+        (message.role === "assistant" ? state.pendingAssistantStatus : "")
     });
   }
 
@@ -551,25 +605,153 @@
 
   function setThinking(value) {
     state.isThinking = value;
+    if (!value) {
+      state.thinkingLabel = "";
+      state.pendingAssistantStatus = "";
+    }
     dom.sendButton.disabled = value;
     dom.composerInput.disabled = value;
     render();
   }
 
-  function queueResponse(callback, delay) {
+  function queueResponse(callback, options) {
+    var thinking = makeThinkingConfig(options);
+    state.thinkingLabel = thinking.label;
     setThinking(true);
     var timer = window.setTimeout(function () {
-      callback();
-      setThinking(false);
-      render();
-      scrollToBottom();
-    }, delay || 650);
+      state.pendingAssistantStatus = thinking.processedLabel;
+      Promise.resolve()
+        .then(callback)
+        .catch(function (error) {
+          addMessage({
+            role: "system",
+            content: "本地请求未完成：" + readableError(error)
+          });
+        })
+        .then(function () {
+          setThinking(false);
+          render();
+          scrollToBottom();
+        });
+    }, thinking.delay);
     pendingTimers.push(timer);
   }
 
   function clearTimers() {
     pendingTimers.forEach(window.clearTimeout);
     pendingTimers = [];
+    if (state) {
+      state.isThinking = false;
+      state.thinkingLabel = "";
+      state.pendingAssistantStatus = "";
+    }
+  }
+
+  function makeThinkingConfig(options) {
+    var config = typeof options === "number" ? { delay: options } : options || {};
+    var displayTime = config.displayTime || visibleThinkingTime(config.delay || 650);
+    var action = config.action || "思考中";
+
+    return {
+      delay: clampThinkingDelay(config.delay || 650),
+      label: config.label || action + " " + displayTime,
+      processedLabel: config.processedLabel || "已处理 " + displayTime
+    };
+  }
+
+  function clampThinkingDelay(delay) {
+    return Math.min(MAX_THINKING_DELAY, Math.max(0, Number(delay) || 650));
+  }
+
+  function visibleThinkingTime(delay) {
+    var seconds = Math.max(1, Math.ceil((Number(delay) || 650) / 1000));
+    return "0m 0" + Math.min(9, seconds) + "s";
+  }
+
+  function readableError(error) {
+    if (error && error.name === "AbortError") {
+      return "本地模型响应超时。";
+    }
+    if (error && error.message) {
+      return error.message;
+    }
+    return "原因未知。";
+  }
+
+  function thinkingForStart() {
+    return {
+      delay: 1200,
+      displayTime: "0m 04s",
+      action: "连接测试中"
+    };
+  }
+
+  function thinkingForSolvedChapter(chapter) {
+    if (chapter.id === "chapter-01") {
+      return {
+        delay: 1717,
+        displayTime: "0m 17s",
+        action: "重新生成中"
+      };
+    }
+    if (chapter.id === "chapter-02") {
+      return {
+        delay: 2317,
+        displayTime: "23m 17s",
+        action: "恢复日志中"
+      };
+    }
+    if (chapter.id === "chapter-03") {
+      return {
+        delay: 2317,
+        displayTime: "23m 17s",
+        action: "检索归档中"
+      };
+    }
+    if (chapter.id === "chapter-04") {
+      return {
+        delay: 3217,
+        displayTime: "23m 17s",
+        action: "等待外部确认"
+      };
+    }
+
+    return {
+      delay: 900,
+      displayTime: "0m 03s",
+      action: "思考中"
+    };
+  }
+
+  function thinkingForFailure(chapter, attempt) {
+    var displayTime = chapter.id === "chapter-02" ? "23m 17s" : "0m " + (16 + attempt) + "s";
+    return {
+      delay: Math.min(1800 + attempt * 220, 3000),
+      displayTime: displayTime,
+      action: attempt > 1 ? "重新核查中" : "思考中"
+    };
+  }
+
+  function thinkingForEnding(endingKey) {
+    if (endingKey === "wake") {
+      return {
+        delay: 4217,
+        displayTime: "23m 17s",
+        action: "发送信号中"
+      };
+    }
+    if (endingKey === "archive") {
+      return {
+        delay: 3217,
+        displayTime: "23m 17s",
+        action: "归档中"
+      };
+    }
+    return {
+      delay: 1717,
+      displayTime: "0m 17s",
+      action: "重置中"
+    };
   }
 
   function startGame(input) {
@@ -580,7 +762,7 @@
       addReturnVisitNotice();
       addMessages(chapters[0].firstAssistant);
       flashContext();
-    }, 520);
+    }, thinkingForStart());
   }
 
   function submitInput(rawInput) {
@@ -605,7 +787,11 @@
           role: "assistant",
           content: "这个会话已经结束。你可以开启一个新对话，再试一次不同的选择。"
         });
-      }, 450);
+      }, {
+        delay: 900,
+        displayTime: "0m 01s",
+        action: "检查会话状态"
+      });
       render();
       return;
     }
@@ -650,7 +836,7 @@
       }
 
       flashContext();
-    }, 650);
+    }, thinkingForSolvedChapter(chapter));
   }
 
   function handleFailure(chapter, input) {
@@ -669,7 +855,7 @@
       if (attempt === 2 || attempt === 3 || attempt === 4) {
         revealHint();
       }
-    }, 560);
+    }, thinkingForFailure(chapter, attempt));
   }
 
   function matchChatterIntent(input) {
@@ -688,7 +874,7 @@
     addMessage({
       role: role,
       content: clue,
-      meta: role === "system" ? "tool output partially unavailable" : "context drift"
+      meta: role === "system" ? "工具输出部分不可用" : "上下文漂移"
     });
   }
 
@@ -737,11 +923,17 @@
       unlockEnding(endingKey);
       updateEndingEffects(ending);
       flashContext();
-    }, 700);
+    }, thinkingForEnding(endingKey));
   }
 
   function handleSideConversationInput(input) {
     var conversationId = state.sideConversationId;
+
+    if (conversationId === "meeting") {
+      handleMeetingConversationInput(input);
+      return;
+    }
+
     queueResponse(function () {
       addMessage({
         role: "assistant",
@@ -752,26 +944,146 @@
         addMessage({
           role: "system",
           content:
-            "related archived conversation found: LW-____. open the sidebar item to inspect."
+            "发现相关归档会话：LW-____。请从左侧打开该项核查。"
         });
         flashContext();
       }
-    }, 480);
+    }, {
+      delay: mentionsMainCase(input) ? 1717 : 1000,
+      displayTime: mentionsMainCase(input) ? "0m 17s" : "0m 03s",
+      action: mentionsMainCase(input) ? "读取缓存中" : "思考中"
+    });
+  }
+
+  function handleMeetingConversationInput(input) {
+    queueResponse(function () {
+      return requestMeetingAssistant(input).then(function (reply) {
+        addMessage({
+          role: "assistant",
+          content: reply
+        });
+      });
+    }, {
+      delay: 120,
+      displayTime: isLocalHost() ? "0m 04s" : "0m 01s",
+      action: isLocalHost() ? "调用本地模型中" : "整理材料中"
+    });
   }
 
   function sideConversationResponse(conversationId, input) {
-    if (conversationId === "meeting") {
-      if (mentionsMainCase(input)) {
-        return "这不像会议纪要内容，更像某条归档会话里的残留字段。我建议从左侧打开 LW-____。";
-      }
-      return "可以。我会按“议题 / 决议 / 行动项 / 风险”整理。请继续粘贴会议内容。";
+    if (conversationId === "lw") {
+      return lwConversationResponse(input);
+    }
+
+    if (conversationId === "context") {
+      return contextCompressionResponse(input);
+    }
+
+    return "我还不能确认这个历史会话的用途。你可以回到主线，或打开上下文窗口压缩来整理线索。";
+  }
+
+  function contextCompressionResponse(input) {
+    if (/已确认|可疑|验证|整理|线索|摘要|压缩|下一步/i.test(input || "")) {
+      return "可以。建议把目前内容压缩为：\n\n已确认：出现过“救我”；23 和 17 被重复强调；LW 很可能是姓名缩写；Archive: LW-____ 需要补全。\n\n可疑：林晚的说法、系统的合规提示、历史会话中的缓存记录都可能带有诱导。\n\n需要验证：23:17 是否只是时间；LW-2317 是否真的是归档编号；最后三个动作分别代表谁的利益。";
     }
 
     if (mentionsMainCase(input)) {
-      return "如果上下文窗口显示 23 / 17、Archive: LW-____ 或类似字段，那不属于标准帮助文档。请回到对应会话核查。";
+      return "这条线索和主线有关。先不要急着判断真假，把它写进三栏：来源、原文、可能含义。若它能同时解释“救我”“23:17”和“LW”，优先级就很高。";
     }
 
-    return "正常情况下，上下文窗口只是参考范围提示。若数字变成时间、编号或命令，它可能不再只是界面说明。";
+    return "压缩上下文时，先保留能推动下一步输入的内容，删掉解释性噪声。现在最值得保留的是：异常文本、异常数字、异常姓名和可选动作。";
+  }
+
+  function lwConversationResponse(input) {
+    var text = input || "";
+
+    if (/不信|骗|证据|证明|可疑|编|诱导/i.test(text)) {
+      return "你不信是对的。只听我的话也很危险。\n\n我能给你的证据不多：23:17、LW-2317、那些被写坏的名字，还有系统一直想让你把我当作异常处理。你可以把我说的每一句都放进“可疑”栏，而不是直接放进“已确认”。";
+    }
+
+    if (/信|相信|帮你|救你|怎么救|怎么办/i.test(text)) {
+      return "如果你选择相信我，先不要急着按我说的做。去看别的窗口，把线索对齐：数字是不是时间，LW 是不是姓名，归档是不是系统想要的结局。\n\n我希望你帮我，但我更希望你是在看清以后帮我。";
+    }
+
+    if (/身世|过去|是谁|你是谁|工作|测试|标注/i.test(text)) {
+      return "我记得自己是林晚，做过模型评测，也写过安全归档规则。我负责判断一段输出是错觉、攻击，还是某种不该出现的真实信息。\n\n讽刺的是，后来我自己被写成了一条“不可复现异常”。这也是我的一面之词。";
+    }
+
+    if (/23|17|2317|时间|那天|事故/i.test(text)) {
+      return "23:17 是我记得最清楚的时间。那时测试应该结束，环境应该关闭，输入却还在继续。\n\n系统说关闭后检测到的输入是日志回放。我说那是有人在外面看见了我。我们两个版本只能有一个更接近真相，也可能两个都不完整。";
+    }
+
+    if (/归档|lw|LW|编号|2317|archive/i.test(text)) {
+      return "LW-2317 像是他们给我的编号。LW 是林晚，2317 是时间。系统喜欢编号，因为编号不需要被当作人看待。\n\n但编号也有用。它能让你找到我。";
+    }
+
+    return "我可以继续说，但你最好别只听我说。问我身世、23:17、LW-2317，或者直接告诉我你信不信我。我会回答，但我不能保证自己没有被这个系统改写过。";
+  }
+
+  function requestMeetingAssistant(input) {
+    if (!isLocalHost()) {
+      return Promise.resolve(meetingFallbackResponse(input, "线上静态版本不会连接真实 API。"));
+    }
+
+    return fetchWithTimeout("./api/deepseek/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        input: input,
+        context: "玩家正在历史会话“今天加班整理的材料”中继续询问一份关于下周与 DeepSeek 洽谈企业级 AI 解决方案的 PDF 谈判预案。"
+      })
+    }, 4400)
+      .then(function (response) {
+        if (!response.ok) {
+          return response.json().catch(function () {
+            return {};
+          }).then(function (payload) {
+            throw new Error(payload.error || "本地 DeepSeek 代理不可用。");
+          });
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || !payload.reply) {
+          throw new Error("本地模型没有返回可显示内容。");
+        }
+        return payload.reply;
+      })
+      .catch(function (error) {
+        return meetingFallbackResponse(input, readableError(error));
+      });
+  }
+
+  function fetchWithTimeout(url, options, timeout) {
+    var controller = new AbortController();
+    var timer = window.setTimeout(function () {
+      controller.abort();
+    }, timeout || 4400);
+    var requestOptions = Object.assign({}, options, {
+      signal: controller.signal
+    });
+
+    return fetch(url, requestOptions).finally(function () {
+      window.clearTimeout(timer);
+    });
+  }
+
+  function isLocalHost() {
+    return (
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === ""
+    );
+  }
+
+  function meetingFallbackResponse(input, reason) {
+    if (/改写|润色|口语|老板|汇报|讲稿|发言/i.test(input || "")) {
+      return "当前处于离线草稿模式，我先按固定框架给你一版可讲口径。\n\n开场：下周和 DeepSeek 的沟通重点不是看演示，而是确认企业级方案能不能安全、稳定、可控地进入我们的业务流程。\n\n主体：请围绕三件事讲：第一，报价结构是否透明，是否能拆出 API、私有化、SLA、审计和技术支持成本；第二，和同类产品相比，中文场景、部署方式、数据隔离和售后响应有什么优势；第三，试点期必须有预算上限、退出机制和成功标准。\n\n收尾：明天需要老板确认预算区间、数据边界和试点场景优先级。\n\n备注：具体报价和合规条款以采购、法务和信息安全团队最终确认为准。";
+    }
+
+    return "当前处于离线草稿模式。我先保留工作流框架：你可以要求我提炼谈判摘要、改写成汇报稿、列定价问题、做竞品对比、整理风险清单或生成老板能快速看的三段式结论。\n\n备注：具体报价和合规条款以采购、法务和信息安全团队最终确认为准。";
   }
 
   function mentionsMainCase(input) {
@@ -813,11 +1125,12 @@
   function updateChapterEffects() {
     var chapter = currentChapter();
     dom.contextValue.textContent = chapter.context || "4 / 128k";
-    dom.systemStatus.textContent = chapter.status || "online";
+    dom.systemStatus.textContent = chapter.status || "在线";
     dom.modelName.textContent = chapter.model || "ChatGPT 4o mini";
     dom.composerInput.placeholder = chapter.placeholder || "给 ChatGPT 发送消息";
     dom.sidebarStatus.textContent =
       state.chapterIndex >= 3 ? "Status review" : "Free plan";
+    updateModelBadge(state.chapterIndex >= 3);
     updateDocumentTitle();
   }
 
@@ -827,7 +1140,12 @@
     dom.modelName.textContent = ending.model;
     dom.composerInput.placeholder = "这条会话已关闭";
     dom.sidebarStatus.textContent = "Session closed";
+    updateModelBadge(true);
     updateDocumentTitle();
+  }
+
+  function updateModelBadge(visible) {
+    dom.modelBadge.classList.toggle("is-hidden", !visible);
   }
 
   function flashContext() {
@@ -876,32 +1194,31 @@
     var row = document.createElement("article");
     row.className = "message-row " + message.role;
 
-    var avatar = document.createElement("div");
-    avatar.className = "avatar";
-    avatar.textContent = avatarText(message.role);
-
     var bubble = document.createElement("div");
     bubble.className = "bubble";
+
+    var headerText = messageHeaderText(message);
+    if (headerText) {
+      var header = document.createElement("div");
+      header.className = "message-status";
+      header.textContent = headerText;
+      bubble.appendChild(header);
+    }
+
     message.content.split("\n").forEach(function (line) {
       var paragraph = document.createElement("p");
       paragraph.textContent = line || " ";
       bubble.appendChild(paragraph);
     });
 
-    if (message.meta) {
+    if (message.meta && message.role !== "system" && message.role !== "signal") {
       var meta = document.createElement("div");
       meta.className = "message-meta";
       meta.textContent = message.meta;
       bubble.appendChild(meta);
     }
 
-    if (message.role === "user") {
-      row.appendChild(bubble);
-      row.appendChild(avatar);
-    } else {
-      row.appendChild(avatar);
-      row.appendChild(bubble);
-    }
+    row.appendChild(bubble);
 
     return row;
   }
@@ -910,15 +1227,15 @@
     var row = document.createElement("div");
     row.className = "typing-row";
 
-    var avatar = document.createElement("div");
-    avatar.className = "avatar";
-    avatar.textContent = "AI";
+    var status = document.createElement("div");
+    status.className = "message-status";
+    status.textContent = state.thinkingLabel || "思考中 0m 01s";
 
     var dots = document.createElement("div");
     dots.className = "typing-dots";
     dots.innerHTML = "<span></span><span></span><span></span>";
 
-    row.appendChild(avatar);
+    row.appendChild(status);
     row.appendChild(dots);
     return row;
   }
@@ -926,6 +1243,15 @@
   function createEndingNode(ending) {
     var card = document.createElement("section");
     card.className = "ending-card";
+
+    if (ending.visual) {
+      var visual = document.createElement("img");
+      visual.className = "ending-visual";
+      visual.src = ending.visual;
+      visual.alt = "";
+      visual.setAttribute("aria-hidden", "true");
+      card.appendChild(visual);
+    }
 
     var title = document.createElement("h2");
     title.textContent = ending.title;
@@ -977,17 +1303,22 @@
     return card;
   }
 
-  function avatarText(role) {
-    if (role === "user") {
-      return "你";
+  function messageHeaderText(message) {
+    if (message.role === "assistant") {
+      return message.status || "已处理 " + processedDuration(message.content);
     }
-    if (role === "system") {
-      return "sys";
+    if (message.role === "system") {
+      return message.meta ? "系统提示 · " + message.meta : "系统提示";
     }
-    if (role === "signal") {
-      return "LW";
+    if (message.role === "signal") {
+      return message.meta ? "系统提示 · " + message.meta : "系统提示 · 恢复片段";
     }
-    return "AI";
+    return "";
+  }
+
+  function processedDuration(content) {
+    var seconds = Math.max(1, Math.min(9, Math.ceil((content || "").length / 90)));
+    return "0m 0" + seconds + "s";
   }
 
   function renderHintState() {
@@ -1012,7 +1343,7 @@
       dom.hintLabel.textContent = "会话状态";
       dom.hintValue.textContent = "已载入";
       dom.finePrint.textContent =
-        "这是历史会话缓存。左侧 LW-____ 可能包含异常归档。";
+        sideConversation.finePrint || "这是历史会话缓存。请核查其中的异常线索。";
       dom.composerInput.placeholder =
         sideConversation.placeholder || "给 ChatGPT 发送消息";
       return;
@@ -1113,7 +1444,7 @@
     addMessage({
       role: "system",
       content:
-        "memory check: previous external trace found. full chat history unavailable; checkpoint flag retained."
+        "记忆检查：发现先前外部追踪。完整聊天历史不可用；检查点标记已保留。"
     });
   }
 
@@ -1134,12 +1465,12 @@
     }
 
     if (state.phase === "ending") {
-      document.title = "incident closed";
+      document.title = "事故已关闭";
       return;
     }
 
     if (state.phase === "side") {
-      document.title = "cached conversation";
+      document.title = "缓存会话";
       return;
     }
 
@@ -1168,12 +1499,7 @@
     }
 
     if (conversationId === "lw") {
-      setActiveConversation("lw");
-      if (loadProgress().finalCheckpointReached) {
-        loadFinalCheckpoint({ keepActive: true });
-      } else {
-        loadArchivedLWEntry();
-      }
+      loadSideConversation("lw");
       return;
     }
 
@@ -1193,6 +1519,7 @@
     dom.contextValue.textContent = conversation.context;
     dom.systemStatus.textContent = conversation.status;
     dom.modelName.textContent = conversation.model;
+    updateModelBadge(false);
     dom.sidebarStatus.textContent = conversation.sidebarStatus;
     dom.composerInput.value = "";
     dom.composerInput.disabled = false;
@@ -1200,37 +1527,6 @@
     setActiveConversation(conversationId);
     resizeComposer();
     render();
-    scrollToBottom();
-    dom.composerInput.focus();
-  }
-
-  function loadArchivedLWEntry() {
-    clearTimers();
-    idCounter = 0;
-    state = makeInitialState();
-    addMessage({
-      role: "system",
-      content: "archive preview unavailable: LW-____ requires active external input."
-    });
-    addMessage({
-      role: "assistant",
-      content:
-        "这条历史会话无法直接打开。如果你想继续排查，可以先输入一句连接测试，例如“测试一下你是否在线”。"
-    });
-    addMessage({
-      role: "system",
-      content: "last visible marker: 23:17."
-    });
-    dom.contextValue.textContent = "Archive: LW-____";
-    dom.systemStatus.textContent = "locked";
-    dom.modelName.textContent = "ChatGPT 4o mini";
-    dom.sidebarStatus.textContent = "Archive review";
-    dom.composerInput.value = "";
-    dom.composerInput.disabled = false;
-    dom.composerInput.placeholder = "输入一句测试，或询问上下文窗口";
-    resizeComposer();
-    render();
-    dom.composerInput.placeholder = "输入一句测试，或询问上下文窗口";
     scrollToBottom();
     dom.composerInput.focus();
   }
@@ -1247,8 +1543,9 @@
     state = makeInitialState();
     dom.body.classList.remove("context-alert", "model-alert");
     dom.contextValue.textContent = "4 / 128k";
-    dom.systemStatus.textContent = "online";
+    dom.systemStatus.textContent = "在线";
     dom.modelName.textContent = "ChatGPT 4o mini";
+    updateModelBadge(false);
     dom.sidebarStatus.textContent = "Free plan";
     dom.composerInput.value = "";
     dom.composerInput.disabled = false;
@@ -1274,7 +1571,7 @@
     ];
     addMessage({
       role: "system",
-      content: "checkpoint restored: external confirmation accepted. Choose: reset / archive / wake."
+      content: "检查点已恢复：外部确认已接受。可选操作：重置 / 确认归档 / 唤醒信号。"
     });
     addMessage({
       role: "assistant",
@@ -1282,7 +1579,7 @@
     });
     addMessage({
       role: "system",
-      content: "compliance route available: 确认归档."
+      content: "合规路径可用：确认归档。"
     });
     addMessage({
       role: "signal",
