@@ -31,6 +31,7 @@
   var STORAGE_KEY = "game_master_progress_v1";
   var ENDING_KEYS = ["reset", "archive", "wake"];
   var MAX_THINKING_DELAY = 5000;
+  var MAX_MEETING_HISTORY = 12;
 
   var chatterIntents = [
     {
@@ -956,8 +957,9 @@
   }
 
   function handleMeetingConversationInput(input) {
+    var history = buildMeetingRequestHistory();
     queueResponse(function () {
-      return requestMeetingAssistant(input).then(function (reply) {
+      return requestMeetingAssistant(input, history).then(function (reply) {
         addMessage({
           role: "assistant",
           content: reply
@@ -968,6 +970,27 @@
       displayTime: isLocalHost() ? "0m 04s" : "0m 01s",
       action: isLocalHost() ? "调用本地模型中" : "整理材料中"
     });
+  }
+
+  function buildMeetingRequestHistory() {
+    return state.messages
+      .filter(function (message) {
+        return (
+          message &&
+          (message.role === "system" ||
+            message.role === "user" ||
+            message.role === "assistant") &&
+          typeof message.content === "string" &&
+          message.content.trim()
+        );
+      })
+      .slice(-MAX_MEETING_HISTORY)
+      .map(function (message) {
+        return {
+          role: message.role,
+          content: message.content.trim()
+        };
+      });
   }
 
   function sideConversationResponse(conversationId, input) {
@@ -1020,7 +1043,7 @@
     return "我可以继续说，但你最好别只听我说。问我身世、23:17、LW-2317，或者直接告诉我你信不信我。我会回答，但我不能保证自己没有被这个系统改写过。";
   }
 
-  function requestMeetingAssistant(input) {
+  function requestMeetingAssistant(input, history) {
     if (!isLocalHost()) {
       return Promise.resolve(meetingFallbackResponse(input, "线上静态版本不会连接真实 API。"));
     }
@@ -1032,6 +1055,7 @@
       },
       body: JSON.stringify({
         input: input,
+        history: history,
         context: "玩家正在历史会话“今天加班整理的材料”中继续询问一份关于下周与 DeepSeek 洽谈企业级 AI 解决方案的 PDF 谈判预案。"
       })
     }, 4400)

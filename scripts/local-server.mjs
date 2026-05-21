@@ -8,6 +8,8 @@ const rootDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 5173);
 const env = await loadEnv();
+const MAX_HISTORY_MESSAGES = 12;
+const MAX_HISTORY_CHARS = 4000;
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -85,6 +87,7 @@ async function handleDeepSeekChat(request, response) {
 
   const body = await readJsonBody(request);
   const userInput = String(body.input || "").slice(0, 2000);
+  const history = normalizeMeetingHistory(body.history);
 
   if (!userInput.trim()) {
     sendJson(response, 400, { error: "Input is required." });
@@ -103,7 +106,7 @@ async function handleDeepSeekChat(request, response) {
       },
       body: JSON.stringify({
         model: env.DEEPSEEK_MODEL,
-        messages: buildMeetingMessages(userInput),
+        messages: buildMeetingMessages(userInput, history),
         temperature: 0.4,
         max_tokens: 520,
         thinking: {
@@ -131,13 +134,27 @@ async function handleDeepSeekChat(request, response) {
   }
 }
 
-function buildMeetingMessages(userInput) {
+function buildMeetingMessages(userInput, history) {
+  const basePrompt = {
+    role: "system",
+    content:
+      "你是一个中文企业级 AI 采购谈判材料助手。用户正在处理一份名为《项目汇报材料_周会版.pdf》的材料，主题是下周与 DeepSeek 洽谈企业级 AI 解决方案。只围绕谈判预案、报价结构、竞品对比、数据安全、SLA、试点方案、风险清单、行动项和汇报口径回答。回答要简洁、实用，优先给结构化中文内容。不要讨论游戏、网页 demo、林晚、LW-2317、系统异常或安全归档。"
+  };
+
+  if (history.length > 0) {
+    const messages = [basePrompt].concat(history);
+    const lastMessage = history[history.length - 1];
+    if (!lastMessage || lastMessage.role !== "user" || lastMessage.content !== userInput.trim()) {
+      messages.push({
+        role: "user",
+        content: userInput
+      });
+    }
+    return messages;
+  }
+
   return [
-    {
-      role: "system",
-      content:
-        "你是一个中文企业级 AI 采购谈判材料助手。用户正在处理一份名为《项目汇报材料_周会版.pdf》的材料，主题是下周与 DeepSeek 洽谈企业级 AI 解决方案。只围绕谈判预案、报价结构、竞品对比、数据安全、SLA、试点方案、风险清单、行动项和汇报口径回答。回答要简洁、实用，优先给结构化中文内容。不要讨论游戏、网页 demo、林晚、LW-2317、系统异常或安全归档。"
-    },
+    basePrompt,
     {
       role: "user",
       content:
@@ -153,6 +170,29 @@ function buildMeetingMessages(userInput) {
       content: userInput
     }
   ];
+}
+
+function normalizeMeetingHistory(history) {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  return history
+    .filter((message) => {
+      return (
+        message &&
+        (message.role === "system" ||
+          message.role === "user" ||
+          message.role === "assistant") &&
+        typeof message.content === "string" &&
+        message.content.trim()
+      );
+    })
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim().slice(0, MAX_HISTORY_CHARS)
+    }));
 }
 
 async function readJsonBody(request) {

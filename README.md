@@ -141,6 +141,8 @@ DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
 node scripts/local-server.mjs
 ```
 
+本地代理会为左侧“今天加班整理的材料”会话保留最近几轮对话上下文，因此可以连续追问上一轮的提纲、要点或改写结果。
+
 然后打开：
 
 ```text
