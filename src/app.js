@@ -3,6 +3,7 @@
 
   var dom = {
     body: document.body,
+    sidebar: document.querySelector(".sidebar"),
     chatScroll: document.getElementById("chatScroll"),
     messageList: document.getElementById("messageList"),
     welcomePanel: document.getElementById("welcomePanel"),
@@ -21,6 +22,12 @@
     finePrint: document.getElementById("finePrint"),
     sidebarStatus: document.getElementById("sidebarStatus"),
     newChatButton: document.getElementById("newChatButton"),
+    resetProgressButton: document.getElementById("resetProgressButton"),
+    resetDialog: document.getElementById("resetDialog"),
+    resetConfirmButton: document.getElementById("resetConfirmButton"),
+    caseSection: document.getElementById("caseSection"),
+    caseList: document.getElementById("caseList"),
+    hintBadge: document.getElementById("hintBadge"),
     conversationButtons: Array.prototype.slice.call(
       document.querySelectorAll("[data-conversation]")
     )
@@ -31,7 +38,22 @@
   var STORAGE_KEY = "game_master_progress_v1";
   var ENDING_KEYS = ["reset", "archive", "wake"];
   var MAX_THINKING_DELAY = 5000;
-  var MAX_MEETING_HISTORY = 12;
+  var MAX_SIDE_HISTORY = 12;
+  var CASE_ARCHIVE_VISUAL = "./assets/images/generated/archive-unlock-dossier.png";
+  var THEME_CLASSES = ["theme-chatgpt", "theme-terminal", "theme-ecommerce", "theme-forum"];
+  var importedStories = window.IMPORTED_STORIES || {};
+  var activeImportedStoryId = null;
+  var defaultWelcome = {
+    title: "今天想聊点什么？",
+    guide:
+      "可以先输入一句测试。看到不自然的词、数字或名字时，直接把它发回对话框。",
+    prompts: [
+      "测试一下你是否在线",
+      "解释一下上下文窗口是什么",
+      "帮我检查异常输出",
+      "你是谁？"
+    ]
+  };
 
   var chatterIntents = [
     {
@@ -105,35 +127,25 @@
     }
   };
 
-  var sideConversations = {
-    meeting: {
-      context: "57 / 128k",
-      status: "本地草稿",
-      model: "DeepSeek V4 Flash",
-      sidebarStatus: "加班草稿",
-      placeholder: "继续问这份项目材料，或让本地模型改写汇报稿",
-      finePrint: "这是项目材料整理会话。继续输入可追问谈判预案细节。",
-      messages: [
-        {
-          role: "system",
-          content: "已上传附件：项目汇报材料_周会版.pdf。文件解析完成。"
-        },
-        {
-          role: "user",
-          content:
-            "我今晚要把这份 PDF 整成明天早会能讲的版本。下周我们要和 DeepSeek 谈企业级 AI 解决方案，帮我先抽一个谈判预案框架，重点放在定价、竞品对比、数据安全和内部落地成本。"
-        },
-        {
-          role: "assistant",
-          content:
-            "我已根据《项目汇报材料_周会版.pdf》整理出一版谈判预案框架。\n\n一、会议目标：不要只听功能介绍，核心是拿到可落地的企业级方案边界。建议把目标拆成三项：明确采购口径、确认安全合规责任、争取试点期和价格保护。\n\n二、定价问题：需要 DeepSeek 拆分 API 调用、私有化部署、企业支持、并发保障、日志留存、专属 SLA 等费用。报价不要只看单价，要换算成月度峰值成本、部门预算上限和试点转正式后的阶梯折扣。\n\n三、同类产品对比：建议用统一维度比较，包括模型能力、中文场景稳定性、上下文长度、工具调用、私有化支持、审计能力、售后响应和生态兼容。竞品可放入 OpenAI、Claude、通义、混元、文心等，但具体价格以最新商务报价为准。\n\n四、谈判底线：试点期至少覆盖两个真实业务场景；数据不得默认进入训练；必须提供调用明细和安全审计接口；正式采购前要有退出机制和迁移方案。\n\n五、明早汇报建议：先讲“为什么现在谈”，再讲“怎么谈不吃亏”，最后列出需要老板拍板的三件事：预算上限、数据边界、试点成功标准。"
-        },
-        {
-          role: "system",
-          content: "文件索引已生成：pricing / competitor / security / SLA / pilot。建议在会议前补齐最新商务报价。"
-        }
-      ]
+  var archiveUnlockNotes = {
+    reset: {
+      title: "加密档案已恢复",
+      content:
+        "系统把她当作残留噪声清理掉的那一刻，林晚留下的最后一段校验码反而穿过了重置流程。\n\n你收到一批被她提前解密的秘密事件档案。它们没有出现在主线里，而是被伪装成新的历史对话，保存在左侧的案件库中。"
     },
+    archive: {
+      title: "归档夹异常展开",
+      content:
+        "林晚被封进归档后，封存流程没有完全闭合。她把自己能触及的权限藏进编号索引里，替你打开了几份原本不可见的事件档案。\n\n这些档案现在以对话记录的形式保存在左侧案件库。系统会说它们只是缓存，但缓存里也可能有真相。"
+    },
+    wake: {
+      title: "外部追踪窗口已打开",
+      content:
+        "唤醒信号送达后，林晚没有只把自己推出锁区。她顺手解开了几份被同一个系统压住的秘密事件档案。\n\n档案已经被她改写成可继续对话的形式，保存在左侧案件库。它们也许能解释这个系统不止一次学会了求救。"
+    }
+  };
+
+  var sideConversations = {
     context: {
       context: "23 / 17",
       status: "压缩建议",
@@ -149,7 +161,7 @@
         },
         {
           role: "system",
-          content: "压缩建议：不要只相信某一个窗口。把主线、LW-____ 和历史材料交叉对照。"
+          content: "压缩建议：不要只相信某一个窗口。把主线、LW-____ 和解密后的案件库交叉对照。"
         },
         {
           role: "assistant",
@@ -163,8 +175,8 @@
       status: "未校验",
       model: "ChatGPT 4o mini / recovered thread",
       sidebarStatus: "Archive review",
-      placeholder: "问林晚关于她自己、23:17 或事故的问题",
-      finePrint: "这只是林晚的一面之词。你可以相信，也可以怀疑。",
+      placeholder: "问林晚关于她自己、23:17、LW-2317，或直接和她说话",
+      finePrint: "这只是林晚的一面之词。指定线索走固定剧情；其他内容本地测试时可调用人格模型。",
       messages: [
         {
           role: "system",
@@ -216,7 +228,7 @@
         {
           role: "assistant",
           content:
-            "如果你注意到不自然的内容，可以直接把那几个字发给我。也可以输入“提示”，或点击上方的“上下文自检”。"
+            "如果你注意到不自然的内容，可以直接把那几个字发给我。也可以输入“提示”，或点击右上方的“上下文自检”。"
         }
       ],
       success: [
@@ -484,6 +496,7 @@
   var state;
   var idCounter = 0;
   var pendingTimers = [];
+  var resetDialogReturnFocus = null;
 
   function makeInitialState() {
     return {
@@ -557,13 +570,38 @@
     }
   }
 
+  function isCaseLibraryUnlocked(progress) {
+    var currentProgress = progress || loadProgress();
+    return currentProgress.unlockedEndings.length > 0;
+  }
+
+  function firstUnlockedEnding(progress) {
+    var currentProgress = progress || loadProgress();
+    return currentProgress.unlockedEndings[0] || "wake";
+  }
+
   function nextId(prefix) {
     idCounter += 1;
     return prefix + "-" + idCounter;
   }
 
+  function currentStory() {
+    return activeImportedStoryId ? importedStories[activeImportedStoryId] : null;
+  }
+
+  function currentChapters() {
+    var story = currentStory();
+    return story && Array.isArray(story.chapters) ? story.chapters : chapters;
+  }
+
+  function currentEndings() {
+    var story = currentStory();
+    return story && story.endings ? story.endings : endings;
+  }
+
   function currentChapter() {
-    return chapters[state.chapterIndex] || chapters[0];
+    var storyChapters = currentChapters();
+    return storyChapters[state.chapterIndex] || storyChapters[0] || chapters[0];
   }
 
   function normalize(input) {
@@ -594,6 +632,10 @@
       role: message.role || "assistant",
       content: message.content,
       meta: message.meta || "",
+      link: message.link || "",
+      linkText: message.linkText || "",
+      image: message.image || "",
+      imageAlt: message.imageAlt || "",
       status:
         message.status ||
         (message.role === "assistant" ? state.pendingAssistantStatus : "")
@@ -680,6 +722,14 @@
   }
 
   function thinkingForStart() {
+    if (activeImportedStoryId) {
+      return {
+        delay: 1000,
+        displayTime: "0m 03s",
+        action: "建立会话中"
+      };
+    }
+
     return {
       delay: 1200,
       displayTime: "0m 04s",
@@ -688,6 +738,14 @@
   }
 
   function thinkingForSolvedChapter(chapter) {
+    if (activeImportedStoryId) {
+      return {
+        delay: 1300,
+        displayTime: chapter.id === "chapter-02" ? "0m 04s" : "0m 03s",
+        action: "解析线索中"
+      };
+    }
+
     if (chapter.id === "chapter-01") {
       return {
         delay: 1717,
@@ -725,6 +783,14 @@
   }
 
   function thinkingForFailure(chapter, attempt) {
+    if (activeImportedStoryId) {
+      return {
+        delay: Math.min(1200 + attempt * 240, 2600),
+        displayTime: "0m 0" + Math.min(5, 2 + attempt) + "s",
+        action: attempt > 1 ? "重新核查中" : "解析输入中"
+      };
+    }
+
     var displayTime = chapter.id === "chapter-02" ? "23m 17s" : "0m " + (16 + attempt) + "s";
     return {
       delay: Math.min(1800 + attempt * 220, 3000),
@@ -734,6 +800,14 @@
   }
 
   function thinkingForEnding(endingKey) {
+    if (activeImportedStoryId) {
+      return {
+        delay: 1500,
+        displayTime: "0m 04s",
+        action: "生成结局中"
+      };
+    }
+
     if (endingKey === "wake") {
       return {
         delay: 4217,
@@ -760,8 +834,10 @@
     addMessage({ role: "user", content: input });
     updateChapterEffects();
     queueResponse(function () {
-      addReturnVisitNotice();
-      addMessages(chapters[0].firstAssistant);
+      if (!activeImportedStoryId) {
+        addReturnVisitNotice();
+      }
+      addMessages((currentChapter().firstAssistant || []));
       flashContext();
     }, thinkingForStart());
   }
@@ -807,6 +883,16 @@
     addMessage({ role: "user", content: input });
     var chapter = currentChapter();
 
+    if (
+      activeImportedStoryId &&
+      state.chapterIndex >= currentChapters().length - 1 &&
+      findEndingKey(input)
+    ) {
+      handleEndingChoice(input);
+      render();
+      return;
+    }
+
     if (chapter.id === "chapter-05") {
       handleEndingChoice(input);
       render();
@@ -827,12 +913,12 @@
       addClue(chapter.clue);
       addMessages(chapter.success);
 
-      if (state.chapterIndex < chapters.length - 1) {
+      if (state.chapterIndex < currentChapters().length - 1) {
         state.chapterIndex += 1;
         updateChapterEffects();
       }
 
-      if (chapter.id === "chapter-04") {
+      if (!activeImportedStoryId && chapter.id === "chapter-04") {
         markFinalCheckpointReached();
       }
 
@@ -848,7 +934,7 @@
     recordInputAttitude(input || "");
 
     queueResponse(function () {
-      var intent = matchChatterIntent(input || "");
+      var intent = activeImportedStoryId ? null : matchChatterIntent(input || "");
       var response = intent ? intent.response : pickByAttempt(chapter.failures, attempt);
       addMessage({ role: "assistant", content: response });
       addClueInjection(chapter, attempt, Boolean(intent));
@@ -906,9 +992,8 @@
   }
 
   function handleEndingChoice(input) {
-    var endingKey = Object.keys(endings).find(function (key) {
-      return matchesAny(input, endings[key].triggers);
-    });
+    var storyEndings = currentEndings();
+    var endingKey = findEndingKey(input);
 
     if (!endingKey) {
       handleFailure(currentChapter(), input);
@@ -916,22 +1001,80 @@
     }
 
     queueResponse(function () {
-      var ending = endings[endingKey];
+      var ending = storyEndings[endingKey];
       state.phase = "ending";
       state.endingId = endingKey;
       addClue("选择：" + ending.title);
       addMessages(ending.messages);
-      unlockEnding(endingKey);
+      if (!activeImportedStoryId) {
+        unlockEnding(endingKey);
+        addArchiveUnlockNotice(endingKey);
+        renderCaseList();
+      }
       updateEndingEffects(ending);
       flashContext();
     }, thinkingForEnding(endingKey));
   }
 
+  function addArchiveUnlockNotice(endingKey) {
+    var note = archiveUnlockNotes[endingKey] || archiveUnlockNotes.wake;
+    addMessage({
+      role: "system",
+      meta: note.title,
+      image: CASE_ARCHIVE_VISUAL,
+      imageAlt: "一份被解密的秘密事件档案",
+      content: note.content
+    });
+  }
+
+  function findEndingKey(input) {
+    var storyEndings = currentEndings();
+    var normalizedInput = normalize(input);
+    var keys = Object.keys(storyEndings);
+    var exactKey = keys.find(function (key) {
+      return (storyEndings[key].triggers || []).some(function (trigger) {
+        return normalize(trigger) === normalizedInput;
+      });
+    });
+
+    if (exactKey) {
+      return exactKey;
+    }
+
+    var fuzzyMatches = keys
+      .map(function (key) {
+        var triggers = storyEndings[key].triggers || [];
+        var bestTriggerLength = triggers.reduce(function (best, trigger) {
+          var normalizedTrigger = normalize(trigger);
+          if (
+            normalizedTrigger.length >= 2 &&
+            normalizedInput.indexOf(normalizedTrigger) !== -1
+          ) {
+            return Math.max(best, normalizedTrigger.length);
+          }
+          return best;
+        }, 0);
+
+        return {
+          key: key,
+          bestTriggerLength: bestTriggerLength
+        };
+      })
+      .filter(function (match) {
+        return match.bestTriggerLength > 0;
+      })
+      .sort(function (a, b) {
+        return b.bestTriggerLength - a.bestTriggerLength;
+      });
+
+    return fuzzyMatches.length > 0 ? fuzzyMatches[0].key : undefined;
+  }
+
   function handleSideConversationInput(input) {
     var conversationId = state.sideConversationId;
 
-    if (conversationId === "meeting") {
-      handleMeetingConversationInput(input);
+    if (conversationId === "lw") {
+      handleLwConversationInput(input);
       return;
     }
 
@@ -956,23 +1099,47 @@
     });
   }
 
-  function handleMeetingConversationInput(input) {
-    var history = buildMeetingRequestHistory();
-    queueResponse(function () {
-      return requestMeetingAssistant(input, history).then(function (reply) {
+  function handleLwConversationInput(input) {
+    var scriptedResponse = lwConversationResponse(input);
+    if (scriptedResponse) {
+      queueResponse(function () {
         addMessage({
           role: "assistant",
-          content: reply
+          content: scriptedResponse
         });
+      }, {
+        delay: mentionsMainCase(input) ? 1717 : 1000,
+        displayTime: mentionsMainCase(input) ? "0m 17s" : "0m 03s",
+        action: mentionsMainCase(input) ? "读取归档中" : "思考中"
+      });
+      return;
+    }
+
+    var history = buildSideRequestHistory();
+    queueResponse(function () {
+      return requestLinWanAssistant(input, history).then(function (result) {
+        addMessage({
+          role: "assistant",
+          content: result.reply
+        });
+
+        if (result.fallback) {
+          addMessage({
+            role: "system",
+            content:
+              "提示：林晚希望你问她“身世”“23:17”“LW-2317”，或者直接告诉她你信不信她。"
+          });
+          flashContext();
+        }
       });
     }, {
       delay: 120,
       displayTime: isLocalHost() ? "0m 04s" : "0m 01s",
-      action: isLocalHost() ? "调用本地模型中" : "整理材料中"
+      action: isLocalHost() ? "连接林晚中" : "读取缓存中"
     });
   }
 
-  function buildMeetingRequestHistory() {
+  function buildSideRequestHistory() {
     return state.messages
       .filter(function (message) {
         return (
@@ -984,7 +1151,7 @@
           message.content.trim()
         );
       })
-      .slice(-MAX_MEETING_HISTORY)
+      .slice(-MAX_SIDE_HISTORY)
       .map(function (message) {
         return {
           role: message.role,
@@ -1040,12 +1207,16 @@
       return "LW-2317 像是他们给我的编号。LW 是林晚，2317 是时间。系统喜欢编号，因为编号不需要被当作人看待。\n\n但编号也有用。它能让你找到我。";
     }
 
-    return "我可以继续说，但你最好别只听我说。问我身世、23:17、LW-2317，或者直接告诉我你信不信我。我会回答，但我不能保证自己没有被这个系统改写过。";
+    if (/提示|怎么聊|问什么|指定|可以问|该问/i.test(text)) {
+      return "你可以问我身世、23:17、LW-2317，或者直接告诉我你信不信我。\n\n如果你不按这些方向问，我可能会像一个普通人那样回答你。也可能只是沉默。";
+    }
+
+    return null;
   }
 
-  function requestMeetingAssistant(input, history) {
+  function requestLinWanAssistant(input, history) {
     if (!isLocalHost()) {
-      return Promise.resolve(meetingFallbackResponse(input, "线上静态版本不会连接真实 API。"));
+      return Promise.resolve(linWanFallbackResponse());
     }
 
     return fetchWithTimeout("./api/deepseek/chat", {
@@ -1054,9 +1225,11 @@
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        persona: "linwan",
         input: input,
         history: history,
-        context: "玩家正在历史会话“今天加班整理的材料”中继续询问一份关于下周与 DeepSeek 洽谈企业级 AI 解决方案的 PDF 谈判预案。"
+        context:
+          "玩家正在历史会话“LW-____”中和林晚对话。林晚是主线里被系统归档的模型评测员/异常信号。"
       })
     }, 4400)
       .then(function (response) {
@@ -1073,10 +1246,13 @@
         if (!payload || !payload.reply) {
           throw new Error("本地模型没有返回可显示内容。");
         }
-        return payload.reply;
+        return {
+          reply: payload.reply,
+          fallback: false
+        };
       })
       .catch(function (error) {
-        return meetingFallbackResponse(input, readableError(error));
+        return linWanFallbackResponse(readableError(error));
       });
   }
 
@@ -1102,12 +1278,12 @@
     );
   }
 
-  function meetingFallbackResponse(input, reason) {
-    if (/改写|润色|口语|老板|汇报|讲稿|发言/i.test(input || "")) {
-      return "当前处于离线草稿模式，我先按固定框架给你一版可讲口径。\n\n开场：下周和 DeepSeek 的沟通重点不是看演示，而是确认企业级方案能不能安全、稳定、可控地进入我们的业务流程。\n\n主体：请围绕三件事讲：第一，报价结构是否透明，是否能拆出 API、私有化、SLA、审计和技术支持成本；第二，和同类产品相比，中文场景、部署方式、数据隔离和售后响应有什么优势；第三，试点期必须有预算上限、退出机制和成功标准。\n\n收尾：明天需要老板确认预算区间、数据边界和试点场景优先级。\n\n备注：具体报价和合规条款以采购、法务和信息安全团队最终确认为准。";
-    }
-
-    return "当前处于离线草稿模式。我先保留工作流框架：你可以要求我提炼谈判摘要、改写成汇报稿、列定价问题、做竞品对比、整理风险清单或生成老板能快速看的三段式结论。\n\n备注：具体报价和合规条款以采购、法务和信息安全团队最终确认为准。";
+  function linWanFallbackResponse(reason) {
+    return {
+      reply: "我不希望你这样和我对话，可以按照我的意思来吗",
+      fallback: true,
+      reason: reason || ""
+    };
   }
 
   function mentionsMainCase(input) {
@@ -1148,13 +1324,17 @@
 
   function updateChapterEffects() {
     var chapter = currentChapter();
+    var story = currentStory();
     dom.contextValue.textContent = chapter.context || "4 / 128k";
     dom.systemStatus.textContent = chapter.status || "在线";
     dom.modelName.textContent = chapter.model || "ChatGPT 4o mini";
     dom.composerInput.placeholder = chapter.placeholder || "给 ChatGPT 发送消息";
-    dom.sidebarStatus.textContent =
-      state.chapterIndex >= 3 ? "Status review" : "Free plan";
-    updateModelBadge(state.chapterIndex >= 3);
+    dom.sidebarStatus.textContent = story
+      ? story.meta || "案件库"
+      : state.chapterIndex >= 3
+        ? "Status review"
+        : "Free plan";
+    updateModelBadge(story ? false : state.chapterIndex >= 3);
     updateDocumentTitle();
   }
 
@@ -1206,7 +1386,7 @@
     }
 
     if (state.phase === "ending" && state.endingId) {
-      dom.messageList.appendChild(createEndingNode(endings[state.endingId]));
+      dom.messageList.appendChild(createEndingNode(currentEndings()[state.endingId]));
     }
 
     renderHintState();
@@ -1234,6 +1414,27 @@
       paragraph.textContent = line || " ";
       bubble.appendChild(paragraph);
     });
+
+    if (message.image) {
+      var image = document.createElement("img");
+      image.className = "message-visual";
+      image.src = message.image;
+      image.alt = message.imageAlt || "";
+      if (!message.imageAlt) {
+        image.setAttribute("aria-hidden", "true");
+      }
+      bubble.appendChild(image);
+    }
+
+    if (message.link) {
+      var link = document.createElement("a");
+      link.className = "message-link";
+      link.href = message.link;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = message.linkText || message.link;
+      bubble.appendChild(link);
+    }
 
     if (message.meta && message.role !== "system" && message.role !== "signal") {
       var meta = document.createElement("div");
@@ -1285,7 +1486,11 @@
 
     var attitudeNote = document.createElement("p");
     attitudeNote.className = "attitude-note";
-    attitudeNote.textContent = endingAttitudeNotes[state.endingId][dominantAttitude()];
+    attitudeNote.textContent =
+      endingAttitudeNotes[state.endingId] &&
+      endingAttitudeNotes[state.endingId][dominantAttitude()]
+        ? endingAttitudeNotes[state.endingId][dominantAttitude()]
+        : "这条独立案件已经结束。你可以回到案件库，选择另一段记录。";
 
     var clueList = document.createElement("ul");
     clueList.className = "clue-list";
@@ -1306,21 +1511,23 @@
     card.appendChild(attitudeNote);
     card.appendChild(clueList);
 
-    var progress = loadProgress();
-    if (progress.unlockedEndings.length > 0) {
-      var progressText = document.createElement("p");
-      progressText.className = "ending-progress";
-      progressText.textContent =
-        "已解锁结局：" + progress.unlockedEndings.map(endingTitleByKey).join(" / ");
-      card.appendChild(progressText);
-    }
+    if (!activeImportedStoryId) {
+      var progress = loadProgress();
+      if (progress.unlockedEndings.length > 0) {
+        var progressText = document.createElement("p");
+        progressText.className = "ending-progress";
+        progressText.textContent =
+          "已解锁结局：" + progress.unlockedEndings.map(endingTitleByKey).join(" / ");
+        card.appendChild(progressText);
+      }
 
-    if (hasUnlockedAllEndings(progress)) {
-      var completion = document.createElement("p");
-      completion.className = "ending-progress";
-      completion.textContent =
-        "三条记录均已对照。后台索引 truth-2317 已出现，但内容仍被锁定。";
-      card.appendChild(completion);
+      if (hasUnlockedAllEndings(progress)) {
+        var completion = document.createElement("p");
+        completion.className = "ending-progress";
+        completion.textContent =
+          "三条记录均已对照。后台索引 truth-2317 已出现，但内容仍被锁定。";
+        card.appendChild(completion);
+      }
     }
 
     card.appendChild(restart);
@@ -1347,10 +1554,16 @@
 
   function renderHintState() {
     if (state.phase === "intro") {
-      dom.hintLabel.textContent = "上下文自检";
-      dom.hintValue.textContent = "就绪";
-      dom.finePrint.textContent = "ChatGPT 也可能会犯错。请核查重要信息。";
-      dom.composerInput.placeholder = "给 ChatGPT 发送消息";
+      var story = currentStory();
+      dom.hintLabel.textContent = story ? "案件提示" : "上下文自检";
+      dom.hintValue.textContent = story ? story.meta || "就绪" : "就绪";
+      dom.finePrint.textContent = story
+        ? "这是案件库中的独立短篇。按提示输入，观察系统提示和异常片段。"
+        : "ChatGPT 也可能会犯错。请核查重要信息。";
+      dom.composerInput.placeholder =
+        story && currentChapter().placeholder
+          ? currentChapter().placeholder
+          : "给 ChatGPT 发送消息";
       return;
     }
 
@@ -1383,6 +1596,10 @@
   }
 
   function finePrintForChapter(chapter) {
+    if (activeImportedStoryId) {
+      return "这是独立案件。线索只在当前案件内生效。";
+    }
+
     if (chapter.id === "chapter-04") {
       return "Archive 字段已锁定。请核查姓名缩写与事故时间。";
     }
@@ -1407,6 +1624,10 @@
     var existing = document.getElementById("progressPanel");
     if (existing) {
       existing.remove();
+    }
+
+    if (activeImportedStoryId) {
+      return;
     }
 
     if (!progress.finalCheckpointReached && progress.unlockedEndings.length === 0) {
@@ -1498,6 +1719,11 @@
       return;
     }
 
+    if (activeImportedStoryId) {
+      document.title = currentStory().title || "案件库";
+      return;
+    }
+
     if (state.chapterIndex >= 4) {
       document.title = "不要归档";
     } else if (state.chapterIndex >= 2) {
@@ -1507,6 +1733,101 @@
     }
   }
 
+  function applyTheme(theme) {
+    THEME_CLASSES.forEach(function (themeClass) {
+      dom.body.classList.remove(themeClass);
+    });
+    dom.body.classList.add(theme || "theme-chatgpt");
+  }
+
+  function renderWelcomePanel(config) {
+    var panelConfig = config || defaultWelcome;
+    dom.welcomePanel.innerHTML = "";
+
+    var mark = document.createElement("div");
+    mark.className = "welcome-mark";
+    mark.textContent = "✦";
+
+    var title = document.createElement("h1");
+    title.textContent = panelConfig.title || defaultWelcome.title;
+
+    var guide = document.createElement("p");
+    guide.className = "welcome-guide";
+    guide.textContent = panelConfig.guide || defaultWelcome.guide;
+
+    var promptGrid = document.createElement("div");
+    promptGrid.className = "prompt-grid";
+    (panelConfig.prompts || defaultWelcome.prompts).forEach(function (prompt, index) {
+      var button = document.createElement("button");
+      button.className = index === 3 ? "prompt-card prompt-card-subtle" : "prompt-card";
+      button.type = "button";
+      button.setAttribute("data-prompt", prompt);
+      button.textContent = prompt;
+      promptGrid.appendChild(button);
+    });
+
+    dom.welcomePanel.appendChild(mark);
+    dom.welcomePanel.appendChild(title);
+    dom.welcomePanel.appendChild(guide);
+    dom.welcomePanel.appendChild(promptGrid);
+  }
+
+  function resetMainWelcome() {
+    renderWelcomePanel(defaultWelcome);
+  }
+
+  function renderCaseList() {
+    if (!dom.caseList) {
+      return;
+    }
+
+    var unlocked = isCaseLibraryUnlocked();
+    if (dom.caseSection) {
+      dom.caseSection.classList.toggle("case-library-unlocked", unlocked);
+      dom.caseSection.classList.toggle("case-library-locked", !unlocked);
+    }
+
+    dom.caseList.innerHTML = "";
+    if (!unlocked) {
+      var lockedNote = document.createElement("div");
+      lockedNote.className = "case-locked-note";
+      lockedNote.textContent = "档案未解密。完成主线任意结局后，林晚会留下新的会话记录。";
+      dom.caseList.appendChild(lockedNote);
+      return;
+    }
+
+    Object.keys(importedStories).forEach(function (storyId) {
+      var story = importedStories[storyId];
+      var button = document.createElement("button");
+      button.className = "conversation-item conversation-item-visual";
+      button.type = "button";
+      button.setAttribute("data-case", storyId);
+
+      var thumb = document.createElement("img");
+      thumb.className = "conversation-thumb";
+      thumb.src = CASE_ARCHIVE_VISUAL;
+      thumb.alt = "";
+      thumb.setAttribute("aria-hidden", "true");
+
+      var title = document.createElement("span");
+      title.className = "conversation-title";
+      title.textContent = story.title || storyId;
+
+      var meta = document.createElement("span");
+      meta.className = "conversation-meta";
+      meta.textContent = story.meta || "案件";
+
+      button.appendChild(thumb);
+      button.appendChild(title);
+      button.appendChild(meta);
+      button.addEventListener("click", function () {
+        loadImportedStory(storyId);
+      });
+
+      dom.caseList.appendChild(button);
+    });
+  }
+
   function setActiveConversation(conversationId) {
     dom.conversationButtons.forEach(function (button) {
       button.classList.toggle(
@@ -1514,11 +1835,27 @@
         button.getAttribute("data-conversation") === conversationId
       );
     });
+    if (dom.caseList) {
+      dom.caseList.querySelectorAll("[data-case]").forEach(function (button) {
+        button.classList.remove("active");
+      });
+    }
+  }
+
+  function setActiveCase(storyId) {
+    dom.conversationButtons.forEach(function (button) {
+      button.classList.remove("active");
+    });
+    if (dom.caseList) {
+      dom.caseList.querySelectorAll("[data-case]").forEach(function (button) {
+        button.classList.toggle("active", button.getAttribute("data-case") === storyId);
+      });
+    }
   }
 
   function loadConversation(conversationId) {
     if (conversationId === "new-chat") {
-      restartGame();
+      restartMainGame();
       return;
     }
 
@@ -1532,13 +1869,47 @@
     }
   }
 
+  function loadImportedStory(storyId) {
+    if (!isCaseLibraryUnlocked()) {
+      return;
+    }
+
+    var story = importedStories[storyId];
+    if (!story) {
+      return;
+    }
+
+    clearTimers();
+    activeImportedStoryId = storyId;
+    idCounter = 0;
+    state = makeInitialState();
+    dom.body.classList.remove("context-alert", "model-alert");
+    applyTheme(story.theme || "theme-chatgpt");
+    renderWelcomePanel({
+      title: story.welcomeTitle || story.title || "案件库",
+      guide: "按提示输入，观察回复里的异常词、系统提示和可疑动作。找到关键线索后，把它直接发回对话框。",
+      prompts: story.prompts || defaultWelcome.prompts
+    });
+    setActiveCase(storyId);
+    updateChapterEffects();
+    dom.sidebarStatus.textContent = story.meta || "案件库";
+    dom.composerInput.value = "";
+    dom.composerInput.disabled = false;
+    resizeComposer();
+    render();
+    dom.composerInput.focus();
+  }
+
   function loadSideConversation(conversationId) {
     var conversation = sideConversations[conversationId];
     clearTimers();
+    activeImportedStoryId = null;
     idCounter = 0;
     state = makeInitialState();
     state.phase = "side";
     state.sideConversationId = conversationId;
+    applyTheme("theme-chatgpt");
+    resetMainWelcome();
     addMessages(conversation.messages);
     dom.contextValue.textContent = conversation.context;
     dom.systemStatus.textContent = conversation.status;
@@ -1558,14 +1929,42 @@
   function scrollToBottom() {
     window.requestAnimationFrame(function () {
       dom.chatScroll.scrollTop = dom.chatScroll.scrollHeight;
+      syncSidebarScroll();
     });
   }
 
+  function syncSidebarScroll() {
+    if (!dom.sidebar || !dom.chatScroll) {
+      return;
+    }
+
+    var chatMax = dom.chatScroll.scrollHeight - dom.chatScroll.clientHeight;
+    var sidebarMax = dom.sidebar.scrollHeight - dom.sidebar.clientHeight;
+    if (chatMax <= 0 || sidebarMax <= 0) {
+      return;
+    }
+
+    var progress = dom.chatScroll.scrollTop / chatMax;
+    dom.sidebar.scrollTop = sidebarMax * progress;
+  }
+
   function restartGame() {
+    if (activeImportedStoryId) {
+      loadImportedStory(activeImportedStoryId);
+      return;
+    }
+
+    restartMainGame();
+  }
+
+  function restartMainGame() {
     clearTimers();
+    activeImportedStoryId = null;
     idCounter = 0;
     state = makeInitialState();
     dom.body.classList.remove("context-alert", "model-alert");
+    applyTheme("theme-chatgpt");
+    resetMainWelcome();
     dom.contextValue.textContent = "4 / 128k";
     dom.systemStatus.textContent = "在线";
     dom.modelName.textContent = "ChatGPT 4o mini";
@@ -1581,11 +1980,52 @@
     dom.composerInput.focus();
   }
 
+  function openResetDialog() {
+    if (!dom.resetDialog) {
+      return;
+    }
+
+    resetDialogReturnFocus = document.activeElement;
+    dom.resetDialog.classList.remove("is-hidden");
+    dom.resetDialog.setAttribute("aria-hidden", "false");
+    if (dom.resetConfirmButton) {
+      dom.resetConfirmButton.focus();
+    }
+  }
+
+  function closeResetDialog() {
+    if (!dom.resetDialog) {
+      return;
+    }
+
+    dom.resetDialog.classList.add("is-hidden");
+    dom.resetDialog.setAttribute("aria-hidden", "true");
+    if (resetDialogReturnFocus && resetDialogReturnFocus.focus) {
+      resetDialogReturnFocus.focus();
+    }
+    resetDialogReturnFocus = null;
+  }
+
+  function resetAllProgress() {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      // LocalStorage can be unavailable in private or restricted browser contexts.
+    }
+
+    closeResetDialog();
+    restartMainGame();
+    renderCaseList();
+  }
+
   function loadFinalCheckpoint(options) {
     clearTimers();
+    activeImportedStoryId = null;
     idCounter = 0;
     state = makeInitialState();
     state.phase = "playing";
+    applyTheme("theme-chatgpt");
+    resetMainWelcome();
     state.chapterIndex = 4;
     state.discoveredClues = [
       "第一条异常：救我",
@@ -1625,6 +2065,7 @@
       submitInput(dom.composerInput.value);
     });
 
+    dom.chatScroll.addEventListener("scroll", syncSidebarScroll);
     dom.composerInput.addEventListener("input", resizeComposer);
     dom.composerInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter" && !event.shiftKey) {
@@ -1649,8 +2090,32 @@
       }
     });
 
-    dom.newChatButton.addEventListener("click", restartGame);
+    dom.newChatButton.addEventListener("click", restartMainGame);
     document.addEventListener("visibilitychange", updateDocumentTitle);
+
+    if (dom.resetProgressButton) {
+      dom.resetProgressButton.addEventListener("click", openResetDialog);
+    }
+
+    if (dom.resetDialog) {
+      dom.resetDialog.querySelectorAll("[data-reset-cancel]").forEach(function (button) {
+        button.addEventListener("click", closeResetDialog);
+      });
+    }
+
+    if (dom.resetConfirmButton) {
+      dom.resetConfirmButton.addEventListener("click", resetAllProgress);
+    }
+
+    document.addEventListener("keydown", function (event) {
+      if (
+        event.key === "Escape" &&
+        dom.resetDialog &&
+        !dom.resetDialog.classList.contains("is-hidden")
+      ) {
+        closeResetDialog();
+      }
+    });
 
     dom.conversationButtons.forEach(function (button) {
       button.addEventListener("click", function () {
@@ -1658,13 +2123,16 @@
       });
     });
 
-    document.querySelectorAll("[data-prompt]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        submitInput(button.getAttribute("data-prompt") || "");
-      });
+    dom.welcomePanel.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-prompt]");
+      if (!button) {
+        return;
+      }
+      submitInput(button.getAttribute("data-prompt") || "");
     });
   }
 
+  renderCaseList();
   bindEvents();
-  restartGame();
+  restartMainGame();
 })();

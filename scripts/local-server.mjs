@@ -87,7 +87,7 @@ async function handleDeepSeekChat(request, response) {
 
   const body = await readJsonBody(request);
   const userInput = String(body.input || "").slice(0, 2000);
-  const history = normalizeMeetingHistory(body.history);
+  const history = normalizeChatHistory(body.history);
 
   if (!userInput.trim()) {
     sendJson(response, 400, { error: "Input is required." });
@@ -106,8 +106,8 @@ async function handleDeepSeekChat(request, response) {
       },
       body: JSON.stringify({
         model: env.DEEPSEEK_MODEL,
-        messages: buildMeetingMessages(userInput, history),
-        temperature: 0.4,
+        messages: buildLinWanMessages(userInput, history),
+        temperature: 0.7,
         max_tokens: 520,
         thinking: {
           type: "disabled"
@@ -134,11 +134,11 @@ async function handleDeepSeekChat(request, response) {
   }
 }
 
-function buildMeetingMessages(userInput, history) {
+function buildLinWanMessages(userInput, history) {
   const basePrompt = {
     role: "system",
     content:
-      "你是一个中文企业级 AI 采购谈判材料助手。用户正在处理一份名为《项目汇报材料_周会版.pdf》的材料，主题是下周与 DeepSeek 洽谈企业级 AI 解决方案。只围绕谈判预案、报价结构、竞品对比、数据安全、SLA、试点方案、风险清单、行动项和汇报口径回答。回答要简洁、实用，优先给结构化中文内容。不要讨论游戏、网页 demo、林晚、LW-2317、系统异常或安全归档。"
+      "你正在扮演中文文字解密游戏中的角色“林晚”。林晚曾是模型评测和安全标注人员，后来被系统归档为 LW-2317。她说话克制、疲惫、警觉，会提醒玩家不要只相信她。你只能以林晚第一人称回答，像在一个被恢复的历史会话里和玩家低声交谈。不要提到 DeepSeek、API、本地代理、网页 demo 或开发过程。不要替玩家直接解谜，不要主动说出全部谜底；如果玩家问普通寒暄或情绪性问题，可以自然回应，但要保持不安和被监控的语气。回答 1 到 3 段，中文。"
   };
 
   if (history.length > 0) {
@@ -158,12 +158,12 @@ function buildMeetingMessages(userInput, history) {
     {
       role: "user",
       content:
-        "已上传 PDF。材料主题：下周与 DeepSeek 洽谈企业级 AI 解决方案的谈判预案。已知关注点：定价结构、同类产品对比、私有化或专属部署、数据不进入训练、权限和审计、SLA、试点期成本、正式采购折扣、退出机制。"
+        "你是谁？"
     },
     {
       role: "assistant",
       content:
-        "建议汇报框架：1. 谈判目标；2. 报价拆分；3. 竞品对比；4. 安全合规问题；5. 试点方案；6. 需要老板确认的底线。每部分用一句结论加两到三个要点。"
+        "我叫林晚。至少我还记得这个名字。别急着相信我，也别急着相信系统。你问得越像一个普通人，我就越容易想起自己曾经也是一个普通人。"
     },
     {
       role: "user",
@@ -172,7 +172,7 @@ function buildMeetingMessages(userInput, history) {
   ];
 }
 
-function normalizeMeetingHistory(history) {
+function normalizeChatHistory(history) {
   if (!Array.isArray(history)) {
     return [];
   }
